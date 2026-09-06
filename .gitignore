@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+data/save.json
+data/save.json.*
+artifacts/
+.venv/
