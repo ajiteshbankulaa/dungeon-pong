@@ -203,11 +203,12 @@ class GameTests(unittest.TestCase):
         g.projectiles = [Projectile(90, 215, -310)]
         old = g.player.y
         g.use_ability()
-        self.assertAlmostEqual(old - g.player.y, 155)
+        self.assertGreater(old - g.player.y, 100)
+        self.assertLessEqual(old - g.player.y, 210)
         self.assertGreater(g.invulnerability, 0)
         g.use_ability()
         self.assertEqual(g.stats["abilities_used"], 1)
-        self.assertEqual(g.cooldown, 4)
+        self.assertEqual(g.cooldown, 2.8)
 
     def test_gold_blocks_without_power_and_reflect_stuns(self):
         g = self.game
@@ -443,13 +444,88 @@ class GameTests(unittest.TestCase):
         g.projectiles = [p]
         g.update_projectiles(.001)
         self.assertIn(p, g.projectiles)  # No collision with a hidden paddle.
+        g.projectiles.clear()
         g.encounter.warning = .5
         g.encounter.lanes = [(300, True)]
+        g.encounter.core_open = False
         g.projectiles = [Projectile(ARENA.right - 15, 300, 480, reflected=True)]
         g.update_projectiles(.01)
         self.assertFalse(g.projectiles)
         self.assertFalse(g.encounter.lanes)
         self.assertEqual(g.encounter.warning, 0)
+
+    def test_reflect_handles_red_projectiles_too(self):
+        g = self.game
+        g.powers.add("REFLECT")
+        p = Projectile(g.player.x + 5, g.player.y, -310, blockable=False)
+        g.projectiles = [p]
+        g.update_projectiles(.001)
+        self.assertTrue(p.reflected)
+        self.assertEqual(g.player_hp, 3)
+
+    def test_skeleton_guard_persists_until_enemy_return_then_releases(self):
+        g = self.load(2)
+        encounter = g.encounter
+        encounter.player_shots = 2
+        ball = g.balls[0]
+        encounter.returned(g, ball, True)
+        encounter.update(g, 5.5)
+        self.assertGreater(encounter.guard, 0)
+        self.assertTrue(encounter.guard_waiting_for_return)
+        self.assertEqual(g.enemies[0].height, 145)
+        encounter.returned(g, ball, False)
+        encounter.update(g, .36)
+        encounter.update(g, .01)
+        self.assertEqual(encounter.guard, 0)
+        self.assertEqual(g.enemies[0].height, 88)
+
+    def test_skeleton_arrow_is_telegraphed_and_spawned(self):
+        g = self.load(2)
+        encounter = g.encounter
+        encounter.enemy_shots = 3
+        encounter.returned(g, g.balls[0], False)
+        self.assertGreater(encounter.arrow_charge, .7)
+        self.assertFalse(g.projectiles)
+        encounter.update(g, .76)
+        self.assertEqual(len(g.projectiles), 1)
+        self.assertTrue(g.projectiles[0].blockable)
+
+    def test_slime_coat_makes_exactly_two_bounces_springy(self):
+        g = self.load(1)
+        ball = g.balls[0]
+        g.encounter.enemy_shots = 2
+        g.encounter.returned(g, ball, False)
+        self.assertEqual(ball.slime, 2)
+        before = abs(ball.vy) or 100
+        ball.vy = before
+        g.encounter.wall_bounce(g, ball, True)
+        first = abs(ball.vy)
+        g.encounter.wall_bounce(g, ball, False)
+        second = abs(ball.vy)
+        g.encounter.wall_bounce(g, ball, True)
+        third = abs(ball.vy)
+        self.assertGreater(first, before)
+        self.assertGreater(second, first)
+        self.assertEqual(third, second)
+        self.assertEqual(ball.slime, 0)
+
+    def test_wraith_phases_ball_at_midcourt_for_brief_window(self):
+        g = self.load(3)
+        ball = Ball(x=ARENA.centerx + 2, y=300, vx=-430, delay=0, phase_pending=True)
+        g.balls = [ball]
+        g.update_ball(ball, .01)
+        self.assertGreater(ball.hidden, .27)
+        self.assertFalse(ball.phase_pending)
+        for _ in range(40):
+            g.update_ball(ball, .01)
+        self.assertEqual(ball.hidden, 0)
+
+    def test_ai_read_interval_is_humanly_delayed(self):
+        g = self.game
+        paddle = g.enemies[0]
+        paddle.reaction = 0
+        g.update_ai(.01)
+        self.assertGreaterEqual(paddle.reaction, .32)
 
 
 if __name__ == "__main__":

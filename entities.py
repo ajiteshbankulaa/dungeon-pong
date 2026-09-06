@@ -36,6 +36,8 @@ class Ball:
     slime: int = 0
     portal_cooldown: float = 0
     returned: bool = False
+    phase_pending: bool = False
+    hidden: float = 0.0
     trail: list = field(default_factory=list)
 
     def cap(self):

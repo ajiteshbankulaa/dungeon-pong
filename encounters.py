@@ -2,7 +2,7 @@
 import math
 import pygame
 from entities import Obstacle, Projectile
-from settings import ARENA, PLAYER_X, ENEMY_X, PADDLE_W, BALL_RADIUS, VIOLET
+from settings import ARENA, PLAYER_X, ENEMY_X, PADDLE_W, BALL_RADIUS, GOLD, VIOLET
 
 
 class Encounter:
@@ -15,6 +15,11 @@ class Encounter:
         self.lanes = []
         self.pattern_count = 0
         self.guard = 0.0
+        self.guard_waiting_for_return = False
+        self.player_shots = 0
+        self.enemy_shots = 0
+        self.arrow_charge = 0.0
+        self.arrow_target = ARENA.centery
         self.teleport_warning = 0.0
         self.teleport_y = ARENA.centery
         self.teleport_cooldown = 5.0
@@ -83,6 +88,10 @@ class Encounter:
         self.lanes.clear()
         self.pattern_clock = 3
         self.guard = 0
+        self.guard_waiting_for_return = False
+        self.player_shots = 0
+        self.enemy_shots = 0
+        self.arrow_charge = 0
         self.teleport_warning = 0
         game.projectiles.clear()
         self.configure_arena(game)
@@ -105,7 +114,8 @@ class Encounter:
     def update(self, game, dt):
         self.elapsed += dt
         rules = self.rules()
-        self.guard = max(0, self.guard - dt)
+        if self.guard > 0 and not self.guard_waiting_for_return:
+            self.guard = max(0, self.guard - dt)
         for paddle in game.enemies:
             paddle.height = 145 if self.guard > 0 else (56 if len(game.enemies) > 1 else 88)
             paddle.move(0, game.bounds)
@@ -118,6 +128,13 @@ class Encounter:
             if obstacle.moving:
                 obstacle.rect.centery = round(ARENA.centery + math.sin(self.elapsed * .7) * 155)
         self.core_open = self.elapsed % 5 < 3.6
+        if self.arrow_charge > 0:
+            self.arrow_charge -= dt
+            if self.arrow_charge <= 0:
+                origin = ENEMY_X if game.direction == 1 else PLAYER_X + PADDLE_W
+                game.projectiles.append(Projectile(origin, self.arrow_target, -game.direction * 470,
+                                                      blockable=True, radius=7))
+                game.impact(origin, self.arrow_target, GOLD)
         if rules.get("teleport"):
             self.teleport_cooldown -= dt
             if self.teleport_warning > 0:
@@ -161,10 +178,28 @@ class Encounter:
     def returned(self, game, ball, by_player):
         rules = self.rules()
         if by_player:
-            if rules.get("mechanic") == "guard" and game.rally % 3 == 0:
-                self.guard = 1.4
-        elif rules.get("mechanic") == "slime" and game.enemy_returns % 3 == 0:
-            ball.slime = 2
+            self.player_shots += 1
+            if rules.get("mechanic") == "guard" and self.player_shots % 3 == 0:
+                # The guard is a response to this exact incoming ball. It remains
+                # until the enemy actually returns it, so it cannot expire mid-flight.
+                self.guard = 6.0
+                self.guard_waiting_for_return = True
+                game.callout("BONE GUARD", GOLD)
+        else:
+            self.enemy_shots += 1
+            if self.guard_waiting_for_return:
+                self.guard_waiting_for_return = False
+                self.guard = .35
+            if rules.get("mechanic") == "slime" and self.enemy_shots % 3 == 0:
+                ball.slime = 2
+                game.callout("SLIME COAT: 2 BOUNCES", (90, 255, 155))
+            if rules.get("mechanic") == "phantom" and self.enemy_shots % 3 == 0:
+                ball.phase_pending = True
+                game.callout("PHASE AT MIDCOURT", VIOLET)
+            if rules.get("mechanic") == "guard" and self.enemy_shots % 4 == 0 and self.arrow_charge <= 0:
+                self.arrow_target = game.player.y
+                self.arrow_charge = .75
+                game.callout("ARROW: BLOCK OR REFLECT", GOLD)
 
     def wall_bounce(self, game, ball, at_top):
         rules = self.rules()

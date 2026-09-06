@@ -1,7 +1,7 @@
 [
   {"level":1,"name":"SLIME","category":"STANDARD","hp":2,"speed":260,"error":115,"mechanic":"slime","hint":"Return the solid ball. Angle shots with the paddle tip."},
-  {"level":2,"name":"SKELETON","category":"STANDARD","hp":2,"speed":280,"error":105,"mechanic":"guard","hint":"A shield grows every third return. Aim around it."},
-  {"level":3,"name":"WRAITH","category":"STANDARD","hp":2,"speed":290,"error":95,"mechanic":"phantom","hint":"Only the solid white ball is real."},
+  {"level":2,"name":"SKELETON","category":"STANDARD","hp":2,"speed":265,"error":120,"mechanic":"guard","hint":"Its third-shot guard lasts through the return. Gold arrows can be blocked."},
+  {"level":3,"name":"WRAITH","category":"STANDARD","hp":2,"speed":275,"error":110,"mechanic":"phantom","hint":"Every third enemy return phases out briefly at midcourt."},
   {"level":4,"name":"NECROMANCER","category":"STANDARD","hp":3,"speed":285,"error":110,"arena":"bones","hint":"Outlined bone walls break when the ball hits them."},
   {"level":5,"name":"BONE KING","category":"BOSS","hp":6,"speed":290,"error":95,"boss":"bone","hint":"Break the guard. Gold diamonds can be blocked."},
   {"level":6,"name":"THE MASON","category":"SPECIAL","hp":2,"speed":280,"error":100,"arena":"moving","hint":"Bank around the moving central wall."},

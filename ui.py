@@ -165,18 +165,39 @@ class View:
             if game.store.data["settings"]["effects"]:
                 for i, pos in enumerate(ball.trail[::2]):
                     pygame.draw.circle(self.screen, GRAY if contrast else DARK_GRAY, pos, 2 + i)
-            if rules.get("mechanic") == "phantom" and ball.vx * game.direction < 0:
+            if rules.get("mechanic") == "phantom" and ball.vx * game.direction < 0 and ball.hidden <= 0:
                 for offset in (-34, 34):
                     y = clamp(ball.y + offset, game.bounds.top + 10, game.bounds.bottom - 10)
                     pygame.draw.circle(self.screen, VIOLET, (ball.x + 18, y), BALL_RADIUS, 1)
-            pygame.draw.circle(self.screen, color, (ball.x, ball.y), BALL_RADIUS)
+            if ball.hidden <= 0:
+                pygame.draw.circle(self.screen, color, (ball.x, ball.y), BALL_RADIUS)
+            else:
+                # Entry streak and the last two trail points communicate direction;
+                # the actual ball is absent for only 0.28 seconds.
+                for pos in ball.trail[-2:]:
+                    pygame.draw.circle(self.screen, VIOLET, pos, 3, 1)
             if ball.delay > 0 or ball.charged or ball.slime:
                 pygame.draw.circle(self.screen, CYAN if ball.charged else GRAY, (ball.x, ball.y), BALL_RADIUS + 5, 1)
         for x, y, color, life in game.effects:
             pygame.draw.circle(self.screen, color, (round(x), round(y)), int(6 + (1 - life / .18) * 22), 1)
-        self.text("W/S or arrows: move   /   Space: ability   /   Esc: pause", 550, 654, 15, GRAY)
-        powers = [f"BLINK {game.cooldown:.1f}s" if p == "BLINK" and game.cooldown > 0 else p for p in sorted(game.powers)]
+        space_help = "Space: Blink" if "BLINK" in game.powers else "Space: active power (when unlocked)"
+        self.text(f"W/S or arrows: move   /   {space_help}   /   Esc: pause", 550, 654, 15, GRAY)
+        powers = []
+        for power in sorted(game.powers):
+            if power == "BLINK":
+                powers.append(f"SPACE: BLINK {'READY' if game.cooldown <= 0 else f'{game.cooldown:.1f}s'}")
+            elif power == "SHOCK":
+                charged = any(ball.charged for ball in game.balls)
+                powers.append("SHOCK READY" if charged else f"SHOCK {game.return_count % 3}/3")
+            else:
+                powers.append(f"PASSIVE: {power}")
         self.text("  /  ".join(powers), ARENA.left, 86, 15, CYAN, "midleft")
+        if game.encounter.arrow_charge > 0:
+            y = round(game.encounter.arrow_target)
+            self.dashed(GOLD, (game.player.x, y), (game.enemies[0].x if game.enemies else ARENA.right, y))
+            self.diamond(ARENA.centerx, y, GOLD, True, 8)
+        if game.combat_notice_timer > 0:
+            self.text(game.combat_notice, ARENA.centerx, ARENA.top + 24, 15, game.combat_notice_color)
         if game.intro > 0:
             pygame.draw.rect(self.screen, BLACK, (120, 286, 860, 137))
             self.text(game.config["category"] if phase == 1 else f"PHASE {phase}", 550, 310, 15, VIOLET if game.config.get("boss") else GRAY)

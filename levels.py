@@ -13,8 +13,8 @@ POWER_CHOICES = {
     15: ("SHOCK", "RICOCHET"),
 }
 POWER_TEXT = {
-    "BLINK": "Space: dash toward the nearest incoming ball.",
-    "REFLECT": "Gold diamonds bounce back from your paddle.",
-    "SHOCK": "Every third return stuns the enemy on impact.",
-    "RICOCHET": "Bank shots charge the ball and break cover faster.",
+    "BLINK": "Space: dash up to 210px toward an incoming ball. 2.8s cooldown.",
+    "REFLECT": "Every enemy projectile bounces back from your paddle.",
+    "SHOCK": "Every third return glows cyan and stuns for 1.4 seconds.",
+    "RICOCHET": "Wall banks charge shots, smash cover, and amplify charged scores.",
 }

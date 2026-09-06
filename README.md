@@ -19,7 +19,7 @@ window focus pauses automatically. Paddle-tip returns create sharper angles.
 
 ### Read the arena
 
-- **Solid white circle:** return it. Missing costs one HP.
+- **Solid white circle:** return it. Missing costs one HP. A Wraith can briefly phase it out after a purple midcourt tell.
 - **Filled red diamond + streak:** dodge it. Passing your goal is harmless.
 - **Outlined gold diamond:** block it with your paddle or dodge it. Reflect sends it back.
 - **Cyan:** your charged ball or reflected shot.
@@ -44,13 +44,16 @@ At four milestones, choose from at most two powers:
 
 | Power | Effect |
 | --- | --- |
-| Blink | Space dashes up to 155px toward an incoming ball; four-second cooldown. |
-| Reflect | Gold shots reflect on contact, stun enemies, destroy cover, or interrupt a core's attack. |
-| Shock | Every third return charges the ball; enemy contact stuns for one second. |
-| Ricochet | Wall banks charge your shot and accelerate it within the speed cap. |
+| Blink | Space dashes up to 210px toward an incoming ball; 2.8-second cooldown and a brief safe window. |
+| Reflect | Every hostile projectile reflects, stunning enemies, breaking cover, or striking an open core. |
+| Shock | Every third return charges cyan; enemy contact stuns for 1.4 seconds. |
+| Ricochet | Wall banks charge and accelerate shots, smash cover, and amplify a Shock score. |
 
 Bosses unlock cosmetic paddle styles in Options. Effects and high contrast can be
 toggled independently. All encounters can be played without any power.
+Blink is the only active power and uses Space. Reflect, Shock, and Ricochet are
+automatic passives; the HUD shows their charge or status, and short callouts mark
+every activation.
 
 ### Encounters
 

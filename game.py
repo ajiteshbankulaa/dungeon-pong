@@ -8,7 +8,7 @@ from levels import LEVELS, POWER_CHOICES
 from save import SaveStore
 from settings import (ARENA, PLAYER_X, ENEMY_X, PLAYER_SPEED, PADDLE_W,
                       BALL_RADIUS, BALL_START_SPEED, WHITE, CYAN, RED, GRAY,
-                      GOLD, clamp, predict_y)
+                      GOLD, VIOLET, clamp, predict_y)
 
 
 class Game:
@@ -35,6 +35,9 @@ class Game:
         self.encounter = Encounter(LEVELS[0])
         self.intro = 0
         self.notice = ""
+        self.combat_notice = ""
+        self.combat_notice_color = WHITE
+        self.combat_notice_timer = 0
         self.rally = self.enemy_returns = 0
         self.level_damage = 0
         self.return_count = 0
@@ -89,6 +92,8 @@ class Game:
         self.return_count = 0
         self.intro = 4.0 if index == 0 else 2.8
         self.notice = self.config["hint"]
+        self.combat_notice = ""
+        self.combat_notice_timer = 0
         self.accumulator = 0
         self.serve()
         self.state = "play"
@@ -107,18 +112,26 @@ class Game:
             self.effects.append([x, y, color, .18])
             self.effects = self.effects[-24:]
 
+    def callout(self, text, color=WHITE, duration=.8):
+        self.combat_notice = text
+        self.combat_notice_color = color
+        self.combat_notice_timer = duration
+
     def use_ability(self):
         if self.state != "play" or "BLINK" not in self.powers or self.cooldown > 0 or self.intro > 0:
             return
         incoming = [b for b in self.balls if b.vx * self.direction < 0 and b.delay <= 0]
-        target = min(incoming or self.balls, key=lambda b: abs(b.x - self.player.x), default=None)
+        target = min(incoming, key=lambda b: abs(b.x - self.player.x), default=None)
         if target is None:
+            self.callout("BLINK NEEDS AN INCOMING BALL", GRAY)
             return
         old_y = self.player.y
-        self.player.move(clamp(target.y - self.player.y, -155, 155), self.bounds)
-        self.cooldown = 4
-        self.invulnerability = max(self.invulnerability, .2)
+        intercept = predict_y(target.x, target.y, target.vx, target.vy, self.player.x, self.bounds)
+        self.player.move(clamp(intercept - self.player.y, -210, 210), self.bounds)
+        self.cooldown = 2.8
+        self.invulnerability = max(self.invulnerability, .3)
         self.stats["abilities_used"] += 1
+        self.callout("BLINK", CYAN)
         self.impact(self.player.x, old_y, CYAN)
         self.impact(self.player.x, self.player.y, CYAN)
 
@@ -214,6 +227,7 @@ class Game:
 
     def step(self, dt):
         self.stats["run_time"] += dt
+        self.combat_notice_timer = max(0, self.combat_notice_timer - dt)
         for effect in self.effects:
             effect[3] -= dt
         self.effects = [e for e in self.effects if e[3] > 0]
@@ -255,7 +269,7 @@ class Game:
                     paddle.target = target + self.rng.uniform(-self.config["error"], self.config["error"])
                 else:
                     paddle.target = self.bounds.centery
-                paddle.reaction = self.rng.uniform(.24, .4)
+                paddle.reaction = self.rng.uniform(.32, .52)
             distance = paddle.target - paddle.y
             if self.config.get("paddles", 1) > 1:
                 # Keep independent paddles in distinct territories as members fall.
@@ -282,11 +296,12 @@ class Game:
                 self.projectiles.remove(projectile)
                 continue
             if not projectile.reflected and circle_rect(projectile.x, projectile.y, projectile.radius, self.player.rect):
-                if projectile.blockable and "REFLECT" in self.powers:
+                if "REFLECT" in self.powers:
                     projectile.reflected = True
                     projectile.vx = self.direction * 480
                     projectile.x = self.player.x + PADDLE_W + 8 if self.direction == 1 else self.player.x - 8
                     self.stats["projectiles_reflected"] += 1
+                    self.callout("REFLECT", CYAN)
                     self.impact(projectile.x, projectile.y, CYAN)
                     continue
                 if not projectile.blockable:
@@ -299,12 +314,17 @@ class Game:
                 continue
             if projectile.reflected:
                 if self.encounter.rules().get("objective") == "core" and projectile.x >= ARENA.right - 20:
-                    # Cores have no invisible paddle: a reflection buys recovery time.
-                    self.encounter.pattern_clock = max(self.encounter.pattern_clock, 3)
-                    self.encounter.warning = 0
-                    self.encounter.lanes.clear()
-                    self.impact(ARENA.right - 10, projectile.y, CYAN)
-                    self.projectiles.remove(projectile)
+                    if self.encounter.core_open:
+                        self.callout("CORE HIT", CYAN)
+                        self.damage_enemy()
+                    else:
+                        self.callout("ATTACK BROKEN", CYAN)
+                        self.encounter.pattern_clock = max(self.encounter.pattern_clock, 3)
+                        self.encounter.warning = 0
+                        self.encounter.lanes.clear()
+                        self.impact(ARENA.right - 10, projectile.y, CYAN)
+                    if projectile in self.projectiles:
+                        self.projectiles.remove(projectile)
                     continue
                 hit = None if self.encounter.rules().get("objective") == "core" else next(
                     (p for p in self.enemies if circle_rect(projectile.x, projectile.y, projectile.radius, p.rect)), None)
@@ -327,6 +347,7 @@ class Game:
             ball.delay = max(0, ball.delay - dt)
             return
         ball.portal_cooldown = max(0, ball.portal_cooldown - dt)
+        ball.hidden = max(0, ball.hidden - dt)
         rules = self.encounter.rules()
         old_x, old_y = ball.x, ball.y
         if rules.get("gravity"):
@@ -334,6 +355,13 @@ class Game:
         ball.cap()
         ball.x += ball.vx * dt
         ball.y += ball.vy * dt
+        if ball.phase_pending and ball.vx * self.direction < 0:
+            crossed_center = old_x >= ARENA.centerx > ball.x if self.direction == 1 else old_x <= ARENA.centerx < ball.x
+            if crossed_center:
+                ball.phase_pending = False
+                ball.hidden = .28
+                self.callout("PHASE", VIOLET, .45)
+                self.impact(ball.x, ball.y, VIOLET)
         ball.trail.append((ball.x, ball.y))
         ball.trail = ball.trail[-7:]
         if ball.y <= self.bounds.top + BALL_RADIUS:
@@ -367,6 +395,8 @@ class Game:
             ball.charged = "SHOCK" in self.powers and self.return_count % 3 == 0
             ball.bank = "RICOCHET" in self.powers
             self.encounter.returned(self, ball, True)
+            if ball.charged:
+                self.callout("SHOCK CHARGED", CYAN)
             self.impact(ball.x, ball.y, CYAN if ball.charged else WHITE)
             self.hit_freeze = .012 if self.store.data["settings"]["effects"] else 0
 
@@ -377,7 +407,8 @@ class Game:
                     ball.rebound(paddle, -self.direction)
                     self.enemy_returns += 1
                     if ball.charged:
-                        paddle.stun = 1.0
+                        paddle.stun = 1.4
+                        self.callout("SHOCK: STUN", CYAN)
                     ball.charged = ball.bank = False
                     self.encounter.returned(self, ball, False)
                     self.impact(ball.x, ball.y)
@@ -414,7 +445,10 @@ class Game:
                 ball.vx = -self.direction * abs(ball.vx)
                 ball.x = ARENA.right - BALL_RADIUS if self.direction == 1 else ARENA.left + BALL_RADIUS
             else:
-                self.damage_enemy()
+                damage = 2 if ball.charged and ball.bank else 1
+                for _ in range(min(damage, self.enemy_hp)):
+                    if self.state == "play":
+                        self.damage_enemy()
                 if self.state == "play" and ball in self.balls:
                     # Reset only the scored ball; preserve the other rally in multiball.
                     ball.x, ball.y = ARENA.center
