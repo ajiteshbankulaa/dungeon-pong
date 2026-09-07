@@ -21,7 +21,7 @@ class Game:
         self.selection = 0
         self.accumulator = 0
         self.effects = []
-        self.powers = set()
+        self.powers = {"BLINK"}
         self.power_choices = []
         self.level_index = 0
         self.player_hp = 3
@@ -58,13 +58,13 @@ class Game:
         data = self.store.data
         if mode == "continue":
             level = data["continue_level"]
-            self.powers = set(data["equipped_powers"])
+            self.powers = set(data["equipped_powers"]) | {"BLINK"}
         elif mode == "checkpoint":
             level = min(20, data["checkpoint"] + 1)
-            self.powers = set(data["checkpoint_powers"])
+            self.powers = set(data["checkpoint_powers"]) | {"BLINK"}
         else:
             level = 1
-            self.powers = set()
+            self.powers = {"BLINK"}
         self.load_level(level - 1)
         pending = data["pending_power_level"]
         if mode in ("continue", "checkpoint") and pending and pending + 1 == level:
@@ -126,10 +126,10 @@ class Game:
             self.callout("BLINK NEEDS AN INCOMING BALL", GRAY)
             return
         old_y = self.player.y
-        intercept = predict_y(target.x, target.y, target.vx, target.vy, self.player.x, self.bounds)
+        intercept = self.predict_intercept(target, self.player.x)
         self.player.move(clamp(intercept - self.player.y, -210, 210), self.bounds)
-        self.cooldown = 2.8
-        self.invulnerability = max(self.invulnerability, .3)
+        self.cooldown = 3.6
+        self.invulnerability = max(self.invulnerability, .45)
         self.stats["abilities_used"] += 1
         self.callout("BLINK", CYAN)
         self.impact(self.player.x, old_y, CYAN)
@@ -158,6 +158,7 @@ class Game:
             self.projectiles.clear()
             self.encounter.warning = 0
             self.encounter.lanes.clear()
+            self.encounter.fan.clear()
             self.encounter.pattern_clock = 3.5
             self.serve()
 
@@ -265,7 +266,7 @@ class Game:
                 candidates = [b for b in self.balls if b.vx * self.direction > 0 and b.delay <= 0]
                 ball = min(candidates, key=lambda b: abs(b.x - paddle.x), default=None)
                 if ball:
-                    target = predict_y(ball.x, ball.y, ball.vx, ball.vy, paddle.x, self.bounds)
+                    target = self.predict_intercept(ball, paddle.x)
                     paddle.target = target + self.rng.uniform(-self.config["error"], self.config["error"])
                 else:
                     paddle.target = self.bounds.centery
@@ -280,6 +281,41 @@ class Game:
             if abs(distance) > 10:
                 paddle.move(clamp(distance, -self.config["speed"] * dt, self.config["speed"] * dt), self.bounds)
 
+    def predict_intercept(self, ball, target_x):
+        """Follow current portals, gravity, and obstacles without removing AI error."""
+        x, y, vx, vy = ball.x, ball.y, ball.vx, ball.vy
+        rules = self.encounter.rules()
+        obstacles = [obstacle.rect.copy() for obstacle in self.obstacles]
+        step = 1 / 120
+        for _ in range(120 * 4):
+            old_x, old_y = x, y
+            if rules.get("gravity"):
+                vy += 150 * step
+            speed = math.hypot(vx, vy)
+            if speed > 700:
+                vx, vy = vx * 700 / speed, vy * 700 / speed
+            x, y = x + vx * step, y + vy * step
+            if y <= self.bounds.top + BALL_RADIUS or y >= self.bounds.bottom - BALL_RADIUS:
+                if rules.get("arena") == "portals":
+                    y = self.bounds.bottom - BALL_RADIUS if y <= self.bounds.top + BALL_RADIUS else self.bounds.top + BALL_RADIUS
+                else:
+                    y = clamp(y, self.bounds.top + BALL_RADIUS, self.bounds.bottom - BALL_RADIUS)
+                    vy *= -1
+            for rect in obstacles:
+                if not circle_rect(x, y, BALL_RADIUS, rect):
+                    continue
+                if old_x <= rect.left - BALL_RADIUS or old_x >= rect.right + BALL_RADIUS:
+                    vx *= -1
+                    x = rect.left - BALL_RADIUS if old_x < rect.centerx else rect.right + BALL_RADIUS
+                else:
+                    vy *= -1
+                    y = rect.top - BALL_RADIUS if old_y < rect.centery else rect.bottom + BALL_RADIUS
+                break
+            crossed = old_x <= target_x <= x if vx > 0 else old_x >= target_x >= x
+            if crossed:
+                return clamp(y, self.bounds.top + BALL_RADIUS, self.bounds.bottom - BALL_RADIUS)
+        return self.bounds.centery
+
     def update_projectiles(self, dt):
         for projectile in list(self.projectiles):
             projectile.x += projectile.vx * dt
@@ -288,7 +324,7 @@ class Game:
             # demanding opposite positions. It only opens near the player's side.
             incoming = [b for b in self.balls if b.vx * self.direction < 0 and b.delay <= 0]
             protected = any(abs(b.x - self.player.x) < 320 and
-                            abs(projectile.y - predict_y(b.x, b.y, b.vx, b.vy, self.player.x, self.bounds)) < self.player.height / 2 + 24
+                            abs(projectile.y - self.predict_intercept(b, self.player.x)) < self.player.height / 2 + 24
                             for b in incoming)
             if not projectile.reflected and not projectile.blockable and protected and abs(projectile.x - self.player.x) < 340:
                 self.impact(projectile.x, projectile.y, GRAY)

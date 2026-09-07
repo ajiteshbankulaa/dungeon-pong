@@ -155,6 +155,11 @@ class View:
             color = GOLD if blockable else RED
             self.dashed(color, (ARENA.left + 15, y), (ARENA.right - 15, y))
             self.diamond(ARENA.centerx, y, color, blockable, 9)
+        if game.encounter.fan:
+            origin_x = game.enemies[0].x if game.enemies else ARENA.right
+            for origin_y, vy in game.encounter.fan:
+                travel = abs((game.player.x - origin_x) / 300)
+                self.dashed(RED, (origin_x, origin_y), (game.player.x, origin_y + vy * travel))
         for projectile in game.projectiles:
             color = CYAN if projectile.reflected else GOLD if projectile.blockable else RED
             self.diamond(projectile.x, projectile.y, color, projectile.blockable, projectile.radius)
@@ -183,8 +188,12 @@ class View:
                 pygame.draw.circle(self.screen, CYAN if ball.charged else GRAY, (ball.x, ball.y), BALL_RADIUS + 5, 1)
         for x, y, color, life in game.effects:
             pygame.draw.circle(self.screen, color, (round(x), round(y)), int(6 + (1 - life / .18) * 22), 1)
-        space_help = "Space: Blink" if "BLINK" in game.powers else "Space: active power (when unlocked)"
-        self.text(f"W/S or arrows: move   /   {space_help}   /   Esc: pause", 550, 654, 15, GRAY)
+        if game.invulnerability > 0 and game.cooldown > 3.1:
+            rect = game.player.rect
+            pygame.draw.rect(self.screen, CYAN, rect.inflate(16, 14), 2, border_radius=5)
+            self.line(CYAN, (rect.centerx - 22, rect.top), (rect.centerx - 22, rect.bottom))
+            self.line(CYAN, (rect.centerx + 22, rect.top), (rect.centerx + 22, rect.bottom))
+        self.text("W/S or arrows: move   /   Space: emergency Blink   /   Esc: pause", 550, 654, 15, GRAY)
         powers = []
         for power in sorted(game.powers):
             if power == "BLINK":

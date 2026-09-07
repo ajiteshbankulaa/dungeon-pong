@@ -110,13 +110,13 @@ class GameTests(unittest.TestCase):
         g = self.load(5)
         g.powers = {"BLINK"}
         g.clear_level()
-        g.choose_power("SHOCK")
+        g.choose_power("RICOCHET")
         g.store.data["selected_cosmetic"] = "OUTLINE"
         g.store.flush()
         restored = Game(self.path)
         restored.start("checkpoint")
         self.assertEqual(restored.level_index, 5)
-        self.assertEqual(restored.powers, {"BLINK", "SHOCK"})
+        self.assertEqual(restored.powers, {"BLINK", "RICOCHET"})
         self.assertEqual(restored.store.data["selected_cosmetic"], "OUTLINE")
         self.assertEqual(restored.stats["bosses_defeated"], 1)
 
@@ -208,7 +208,10 @@ class GameTests(unittest.TestCase):
         self.assertGreater(g.invulnerability, 0)
         g.use_ability()
         self.assertEqual(g.stats["abilities_used"], 1)
-        self.assertEqual(g.cooldown, 2.8)
+        self.assertEqual(g.cooldown, 3.6)
+
+    def test_blink_is_available_from_a_fresh_game(self):
+        self.assertIn("BLINK", self.game.powers)
 
     def test_gold_blocks_without_power_and_reflect_stuns(self):
         g = self.game
@@ -541,6 +544,42 @@ class GameTests(unittest.TestCase):
         paddle.reaction = 0
         g.update_ai(.01)
         self.assertGreaterEqual(paddle.reaction, .32)
+
+    def test_ai_prediction_understands_portals_gravity_and_obstacles(self):
+        g = self.load(9)
+        portal_ball = Ball(x=600, y=ARENA.top + 15, vx=400, vy=-180, delay=0)
+        portal_target = g.predict_intercept(portal_ball, g.enemies[0].x)
+        naive_target = predict_y(portal_ball.x, portal_ball.y, portal_ball.vx, portal_ball.vy,
+                                 g.enemies[0].x, g.bounds)
+        self.assertGreater(abs(portal_target - naive_target), 80)
+        g = self.load(12)
+        gravity_ball = Ball(x=500, y=300, vx=400, vy=0, delay=0)
+        self.assertGreater(g.predict_intercept(gravity_ball, g.enemies[0].x), 300)
+        g = self.load(6)
+        obstacle = g.obstacles[0]
+        obstacle.warning = 0
+        bank_ball = Ball(x=500, y=obstacle.rect.centery, vx=400, vy=0, delay=0)
+        self.assertEqual(g.predict_intercept(bank_ball, g.enemies[0].x), g.bounds.centery)
+
+    def test_level_ten_has_three_distinct_attack_phases(self):
+        g = self.load(10)
+        self.assertEqual(g.encounter.rules()["pattern"], "aimed")
+        g.enemy_hp = 4
+        g.encounter.transition(g)
+        self.assertEqual(g.encounter.rules()["pattern"], "fan")
+        g.encounter.pattern_clock = 0
+        g.encounter.update(g, .01)
+        self.assertEqual(len(g.encounter.fan), 3)
+        g.enemy_hp = 2
+        g.encounter.transition(g)
+        rules = g.encounter.rules()
+        self.assertEqual(rules["pattern"], "alternating")
+        self.assertEqual(rules["arena"], "portals")
+
+    def test_twins_have_two_lane_bound_defenders(self):
+        g = self.load(8)
+        self.assertEqual(len(g.enemies), 2)
+        self.assertEqual(len(g.balls), 2)
 
 
 if __name__ == "__main__":

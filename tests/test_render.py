@@ -85,6 +85,21 @@ class RenderTests(unittest.TestCase):
             game.encounter.teleport_warning = .9
             view.draw(game)
             pygame.image.save(self.surface, output / "wraith-phase-step.png")
+            game.load_level(9)
+            game.intro = 0
+            game.encounter.phase = 2
+            game.encounter.pattern_clock = 0
+            game.encounter.update(game, .01)
+            view.draw(game)
+            pygame.image.save(self.surface, output / "phantom-queen-fan-tell.png")
+            game.encounter.fan.clear()
+            game.balls[0].delay = 0
+            game.balls[0].x = 360
+            game.balls[0].y = ARENA.top + 80
+            game.balls[0].vx = -430
+            game.use_ability()
+            view.draw(game)
+            pygame.image.save(self.surface, output / "blink-emergency.png")
 
     def test_mouse_activates_menu_item(self):
         with tempfile.TemporaryDirectory() as directory:

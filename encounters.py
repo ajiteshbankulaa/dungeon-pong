@@ -13,6 +13,7 @@ class Encounter:
         self.pattern_clock = 4.2
         self.warning = 0.0
         self.lanes = []
+        self.fan = []
         self.pattern_count = 0
         self.guard = 0.0
         self.guard_waiting_for_return = False
@@ -36,11 +37,14 @@ class Encounter:
                 rules["arena"] = "bones"
                 rules.pop("mechanic", None)
         elif boss == "phantom":
+            rules["pattern"] = "aimed"
             if self.phase >= 2:
                 rules["mechanic"] = "phantom"
+                rules["pattern"] = "fan"
             if self.phase >= 3:
                 rules["arena"] = "portals"
                 rules["teleport"] = True
+                rules["pattern"] = "alternating"
         elif rules.get("mechanic") == "phantom":
             rules["teleport"] = True
         elif boss == "saint":
@@ -88,6 +92,7 @@ class Encounter:
         self.elapsed = 0
         self.warning = 0
         self.lanes.clear()
+        self.fan.clear()
         self.pattern_clock = 4.2
         self.guard = 0
         self.guard_waiting_for_return = False
@@ -160,23 +165,35 @@ class Encounter:
                 direction = -game.direction
                 origin = ENEMY_X if game.direction == 1 else PLAYER_X + PADDLE_W
                 for y, blockable in self.lanes:
-                    game.projectiles.append(Projectile(origin, y, direction * 310, blockable=blockable))
+                    speed = rules.get("projectile_speed", 290)
+                    game.projectiles.append(Projectile(origin, y, direction * speed, blockable=blockable))
+                for y, vy in self.fan:
+                    game.projectiles.append(Projectile(origin, y, direction * 300, vy=vy))
                 self.lanes.clear()
-                self.pattern_clock = 4.5
+                self.fan.clear()
+                self.pattern_clock = rules.get("pattern_interval", 4.5)
         else:
             self.pattern_clock -= dt
             if self.pattern_clock <= 0 and len(game.projectiles) < 5:
                 self.pattern_count += 1
                 # 190px safe channel exceeds paddle height + projectile diameter.
                 # Aim once at the tell: never chase the player during the warning.
-                if pattern in ("gold", "aimed"):
+                if pattern == "fan":
+                    origin_y = game.enemies[0].y if game.enemies else game.bounds.centery
+                    target = game.player.y
+                    travel = max(.5, abs((game.player.x - ENEMY_X) / 300))
+                    targets = [max(game.bounds.top + 30, min(game.bounds.bottom - 30, target + offset))
+                               for offset in (-150, 0, 150)]
+                    self.fan = [(origin_y, (target_y - origin_y) / travel) for target_y in targets]
+                    game.callout("FAN: MOVE THROUGH A GAP", VIOLET, rules.get("warning", 1.0))
+                elif pattern in ("gold", "aimed"):
                     self.lanes = [(game.player.y, pattern == "gold")]
                 else:
                     center = game.bounds.centery
                     gap = center + (100 if self.pattern_count % 2 else -100) if pattern == "alternating" else center
                     candidates = [game.bounds.top + 45 + i * (game.bounds.height - 90) / 4 for i in range(5)]
                     self.lanes = [(y, False) for y in candidates if abs(y - gap) >= 105]
-                self.warning = 1.0
+                self.warning = rules.get("warning", 1.0)
 
     def returned(self, game, ball, by_player):
         rules = self.rules()

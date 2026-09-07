@@ -7,7 +7,7 @@ SDL's dummy video/audio drivers. They do not alter the player's progress.
 
 `python -m unittest discover -s tests -v`
 
-47 tests cover:
+51 tests cover:
 
 - New game, Continue, checkpoint restart, defeat, victory, pause/resume, menus and mouse input.
 - Missing/corrupt/old/malformed save files, defaults, atomic write failures, read-only paths.
@@ -23,6 +23,8 @@ SDL's dummy video/audio drivers. They do not alter the player's progress.
   and the incoming-ball return corridor.
 - Multiball with portals, simultaneous misses, moving walls, shrinking bounds,
   gravity, reverse play, individually destructible paddles, survival, and Breakout gating.
+- Encounter-aware AI prediction through portals, gravity, and obstacles; the two-defender
+  Twins encounter; level 10's aimed, fan, and alternating-lane phase progression.
 - All phases of all four bosses; transition cleanup with an active projectile;
   pausing during an attack; core vulnerability; the final one-hit rally.
 - Rendering every encounter, boss phase, menu, cosmetic style, and power choice.
@@ -37,10 +39,11 @@ rules as a player. It predicts returns, aims with the paddle tips, and moves out
 of nearby red lanes. No HP overrides, invulnerability cheats, forced damage, or
 level skipping are used during these runs. Each run has a 240-second ceiling.
 
-The final sweep cleared **60/60 encounters**, with no invalid coordinates, excess
-ball/projectile counts, or speed-cap violations. Most normal fights lasted
-roughly 30–100 seconds; some multiball/swarm fights were shorter, around 17–25
-seconds. Bosses ranged from approximately 62–231 seconds. This is useful evidence
+The latest sweep cleared **59/60 encounters**, with no invalid coordinates, excess
+ball/projectile counts, or speed-cap violations. The one loss was Phantom Queen
+level 10 after the new three-pattern escalation; the other two no-power seeds
+cleared it. Most normal fights lasted roughly 15–80 seconds. Bosses ranged from
+approximately 67–136 seconds. This is useful evidence
 against hard power requirements and obvious softlocks, not proof of perfect
 balance or human accessibility.
 

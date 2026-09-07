@@ -13,7 +13,7 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-`python pong.py` also works. Move with **W/S or Up/Down**, use **Space** for Blink,
+`python pong.py` also works. Move with **W/S or Up/Down**, use **Space** for the always-available emergency Blink,
 and **Esc** to pause. Menus support arrows, Enter/Space, and mouse clicks. Losing
 window focus pauses automatically. Paddle-tip returns create sharper angles.
 
@@ -44,7 +44,7 @@ At four milestones, choose from at most two powers:
 
 | Power | Effect |
 | --- | --- |
-| Blink | Space dashes up to 210px toward an incoming ball; 2.8-second cooldown and a brief safe window. |
+| Blink | Available from level 1. Space dashes toward the encounter-aware intercept; 3.6-second cooldown and a brief safe window. |
 | Reflect | Every hostile projectile reflects, stunning enemies, breaking cover, or striking an open core. |
 | Shock | Every third return charges cyan; enemy contact stuns for 1.4 seconds. |
 | Ricochet | Wall banks charge and accelerate shots, smash cover, and amplify a Shock score. |
