@@ -38,6 +38,7 @@ class Ball:
     returned: bool = False
     phase_pending: bool = False
     hidden: float = 0.0
+    hidden_total: float = 0.0
     trail: list = field(default_factory=list)
 
     def cap(self):

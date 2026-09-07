@@ -71,6 +71,20 @@ class RenderTests(unittest.TestCase):
                 pygame.image.save(self.surface, output / f"{state}.png")
                 for rect in view.buttons:
                     self.assertTrue(self.surface.get_rect().contains(rect))
+            game.load_level(2)
+            game.intro = 0
+            ball = game.balls[0]
+            ball.delay = 0
+            ball.x, ball.y = ARENA.centerx - 70, ARENA.centery
+            ball.hidden_total = .62
+            for label, hidden in (("fade-out", .56), ("invisible", .31), ("fade-in", .08)):
+                ball.hidden = hidden
+                view.draw(game)
+                pygame.image.save(self.surface, output / f"wraith-{label}.png")
+            game.encounter.teleport_y = ARENA.top + 110
+            game.encounter.teleport_warning = .9
+            view.draw(game)
+            pygame.image.save(self.surface, output / "wraith-phase-step.png")
 
     def test_mouse_activates_menu_item(self):
         with tempfile.TemporaryDirectory() as directory:

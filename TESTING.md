@@ -7,7 +7,7 @@ SDL's dummy video/audio drivers. They do not alter the player's progress.
 
 `python -m unittest discover -s tests -v`
 
-45 tests cover:
+47 tests cover:
 
 - New game, Continue, checkpoint restart, defeat, victory, pause/resume, menus and mouse input.
 - Missing/corrupt/old/malformed save files, defaults, atomic write failures, read-only paths.
@@ -17,7 +17,8 @@ SDL's dummy video/audio drivers. They do not alter the player's progress.
 - Blink targeting/cooldown with projectiles; blocking without powers; Reflect against red and
   gold shots, paddles, and boss cores; Shock's third return; Ricochet and two-hit cover.
 - Slime's exact two boosted bounces; Skeleton's return-persistent guard and telegraphed arrows;
-  Wraith's midcourt phase timing; slower AI read intervals.
+  Wraith's partially visible ball phase and telegraphed paddle phase-step; slower AI read intervals;
+  restoration of the larger 108px player paddle.
 - Red projectile damage/dodging, simultaneous-hit recovery, telegraphs, safe channels,
   and the incoming-ball return corridor.
 - Multiball with portals, simultaneous misses, moving walls, shrinking bounds,

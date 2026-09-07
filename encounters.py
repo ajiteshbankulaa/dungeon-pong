@@ -10,7 +10,7 @@ class Encounter:
         self.config = config
         self.phase = 1
         self.elapsed = 0.0
-        self.pattern_clock = 3.0
+        self.pattern_clock = 4.2
         self.warning = 0.0
         self.lanes = []
         self.pattern_count = 0
@@ -22,7 +22,7 @@ class Encounter:
         self.arrow_target = ARENA.centery
         self.teleport_warning = 0.0
         self.teleport_y = ARENA.centery
-        self.teleport_cooldown = 5.0
+        self.teleport_cooldown = 4.5
         self.core_open = True
 
     def rules(self):
@@ -41,6 +41,8 @@ class Encounter:
             if self.phase >= 3:
                 rules["arena"] = "portals"
                 rules["teleport"] = True
+        elif rules.get("mechanic") == "phantom":
+            rules["teleport"] = True
         elif boss == "saint":
             rules["objective"] = "core"
             rules["pattern"] = ("gold", "lanes", "alternating")[self.phase - 1]
@@ -86,7 +88,7 @@ class Encounter:
         self.elapsed = 0
         self.warning = 0
         self.lanes.clear()
-        self.pattern_clock = 3
+        self.pattern_clock = 4.2
         self.guard = 0
         self.guard_waiting_for_return = False
         self.player_shots = 0
@@ -143,8 +145,9 @@ class Encounter:
                     game.enemies[0].y = self.teleport_y
             elif self.teleport_cooldown <= 0 and game.enemies:
                 self.teleport_y = game.rng.choice((ARENA.top + 110, ARENA.centery, ARENA.bottom - 110))
-                self.teleport_warning = .7
-                self.teleport_cooldown = 5
+                self.teleport_warning = .9
+                self.teleport_cooldown = 6.5
+                game.callout("WRAITH PHASE", VIOLET, .9)
         if rules.get("objective") == "survive" and self.elapsed >= rules.get("duration", 35):
             game.clear_level()
             return
@@ -159,7 +162,7 @@ class Encounter:
                 for y, blockable in self.lanes:
                     game.projectiles.append(Projectile(origin, y, direction * 310, blockable=blockable))
                 self.lanes.clear()
-                self.pattern_clock = 3.6
+                self.pattern_clock = 4.5
         else:
             self.pattern_clock -= dt
             if self.pattern_clock <= 0 and len(game.projectiles) < 5:
@@ -173,7 +176,7 @@ class Encounter:
                     gap = center + (100 if self.pattern_count % 2 else -100) if pattern == "alternating" else center
                     candidates = [game.bounds.top + 45 + i * (game.bounds.height - 90) / 4 for i in range(5)]
                     self.lanes = [(y, False) for y in candidates if abs(y - gap) >= 105]
-                self.warning = .85
+                self.warning = 1.0
 
     def returned(self, game, ball, by_player):
         rules = self.rules()
@@ -195,7 +198,7 @@ class Encounter:
                 game.callout("SLIME COAT: 2 BOUNCES", (90, 255, 155))
             if rules.get("mechanic") == "phantom" and self.enemy_shots % 3 == 0:
                 ball.phase_pending = True
-                game.callout("PHASE AT MIDCOURT", VIOLET)
+                game.callout("BALL FADING AT MIDCOURT", VIOLET)
             if rules.get("mechanic") == "guard" and self.enemy_shots % 4 == 0 and self.arrow_charge <= 0:
                 self.arrow_target = game.player.y
                 self.arrow_charge = .75

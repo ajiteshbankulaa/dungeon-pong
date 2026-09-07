@@ -142,7 +142,7 @@ class Game:
             self.player_hp -= 1
             self.level_damage += 1
             self.stats["damage_taken"] += 1
-            self.invulnerability = 1.25
+            self.invulnerability = 1.5
             self.impact(self.player.x, self.player.y, RED)
             if self.player_hp <= 0:
                 self.state = "defeat"
@@ -158,7 +158,7 @@ class Game:
             self.projectiles.clear()
             self.encounter.warning = 0
             self.encounter.lanes.clear()
-            self.encounter.pattern_clock = 2.5
+            self.encounter.pattern_clock = 3.5
             self.serve()
 
     def damage_enemy(self):
@@ -269,7 +269,7 @@ class Game:
                     paddle.target = target + self.rng.uniform(-self.config["error"], self.config["error"])
                 else:
                     paddle.target = self.bounds.centery
-                paddle.reaction = self.rng.uniform(.32, .52)
+                paddle.reaction = self.rng.uniform(.4, .62)
             distance = paddle.target - paddle.y
             if self.config.get("paddles", 1) > 1:
                 # Keep independent paddles in distinct territories as members fall.
@@ -359,7 +359,7 @@ class Game:
             crossed_center = old_x >= ARENA.centerx > ball.x if self.direction == 1 else old_x <= ARENA.centerx < ball.x
             if crossed_center:
                 ball.phase_pending = False
-                ball.hidden = .28
+                ball.hidden = ball.hidden_total = .62
                 self.callout("PHASE", VIOLET, .45)
                 self.impact(ball.x, ball.y, VIOLET)
         ball.trail.append((ball.x, ball.y))

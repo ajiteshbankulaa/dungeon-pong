@@ -169,13 +169,16 @@ class View:
                 for offset in (-34, 34):
                     y = clamp(ball.y + offset, game.bounds.top + 10, game.bounds.bottom - 10)
                     pygame.draw.circle(self.screen, VIOLET, (ball.x + 18, y), BALL_RADIUS, 1)
+            partial_phase = ball.hidden > 0 and (ball.hidden > ball.hidden_total - .14 or ball.hidden < .14)
             if ball.hidden <= 0:
                 pygame.draw.circle(self.screen, color, (ball.x, ball.y), BALL_RADIUS)
-            else:
-                # Entry streak and the last two trail points communicate direction;
-                # the actual ball is absent for only 0.28 seconds.
-                for pos in ball.trail[-2:]:
-                    pygame.draw.circle(self.screen, VIOLET, pos, 3, 1)
+            elif partial_phase:
+                # A hollow, broken outline at both edges of the phase communicates
+                # the final trajectory without revealing the middle of the path.
+                pygame.draw.arc(self.screen, VIOLET, (ball.x - BALL_RADIUS, ball.y - BALL_RADIUS,
+                                BALL_RADIUS * 2, BALL_RADIUS * 2), .25, 2.35, 2)
+                pygame.draw.arc(self.screen, GRAY, (ball.x - BALL_RADIUS, ball.y - BALL_RADIUS,
+                                BALL_RADIUS * 2, BALL_RADIUS * 2), 3.4, 5.5, 1)
             if ball.delay > 0 or ball.charged or ball.slime:
                 pygame.draw.circle(self.screen, CYAN if ball.charged else GRAY, (ball.x, ball.y), BALL_RADIUS + 5, 1)
         for x, y, color, life in game.effects:

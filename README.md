@@ -19,7 +19,7 @@ window focus pauses automatically. Paddle-tip returns create sharper angles.
 
 ### Read the arena
 
-- **Solid white circle:** return it. Missing costs one HP. A Wraith can briefly phase it out after a purple midcourt tell.
+- **Solid white circle:** return it. Missing costs one HP. A Wraith fades it to broken outlines, hides its middle path, then fades it back after a purple midcourt tell.
 - **Filled red diamond + streak:** dodge it. Passing your goal is harmless.
 - **Outlined gold diamond:** block it with your paddle or dodge it. Reflect sends it back.
 - **Cyan:** your charged ball or reflected shot.
@@ -29,7 +29,7 @@ window focus pauses automatically. Paddle-tip returns create sharper angles.
 
 Red shots fizzle in the immediate return corridor of an incoming white ball to
 avoid demanding conflicting actions. Waves leave a channel larger than the paddle.
-Hits grant 1.25 seconds of recovery. Gold shots are always blockable without a
+Hits grant 1.5 seconds of recovery. Gold shots are always blockable without a
 power. Blink grants a brief safe dash.
 
 ### Progress and powers

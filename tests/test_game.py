@@ -383,7 +383,7 @@ class GameTests(unittest.TestCase):
         self.assertTrue(g.encounter.lanes)
         for y, _ in g.encounter.lanes:
             self.assertGreaterEqual(abs(y - ARENA.centery), 105)
-        g.encounter.update(g, .86)
+        g.encounter.update(g, 1.01)
         self.assertTrue(g.projectiles)
         self.assertGreater(g.encounter.pattern_clock, 3)
 
@@ -514,11 +514,26 @@ class GameTests(unittest.TestCase):
         ball = Ball(x=ARENA.centerx + 2, y=300, vx=-430, delay=0, phase_pending=True)
         g.balls = [ball]
         g.update_ball(ball, .01)
-        self.assertGreater(ball.hidden, .27)
+        self.assertGreater(ball.hidden, .61)
         self.assertFalse(ball.phase_pending)
-        for _ in range(40):
+        for _ in range(70):
             g.update_ball(ball, .01)
         self.assertEqual(ball.hidden, 0)
+
+    def test_wraith_phase_step_is_telegraphed_before_teleport(self):
+        g = self.load(3)
+        enemy = g.enemies[0]
+        old_y = enemy.y
+        g.encounter.teleport_cooldown = 0
+        g.encounter.update(g, .01)
+        self.assertGreater(g.encounter.teleport_warning, .89)
+        self.assertEqual(enemy.y, old_y)
+        destination = g.encounter.teleport_y
+        g.encounter.update(g, .91)
+        self.assertEqual(enemy.y, destination)
+
+    def test_player_paddle_restored_to_original_forgiving_height(self):
+        self.assertEqual(self.game.player.height, 108)
 
     def test_ai_read_interval_is_humanly_delayed(self):
         g = self.game
