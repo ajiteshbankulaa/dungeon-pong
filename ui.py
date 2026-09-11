@@ -1,7 +1,7 @@
 """Restrained pygame presentation; shapes reinforce every accent color."""
 import math
 import pygame
-from levels import POWER_TEXT
+from levels import LEVELS, POWER_TEXT
 from campaign import CODEX, RELICS, dungeon_for, map_nodes
 from settings import (WIDTH, HEIGHT, ARENA, BALL_RADIUS, BLACK, WHITE, GRAY,
                       DARK_GRAY, CYAN, RED, GOLD, VIOLET, PLAYER_X, ENEMY_X, PADDLE_W,
@@ -24,6 +24,22 @@ class View:
         scaled = max(11, round(size * self.ui_scale))
         image = self.get_font(scaled).render(str(text), True, color)
         self.screen.blit(image, image.get_rect(**{anchor: (x, y)}))
+
+    def wrapped_text(self, text, x, y, width, size=18, color=WHITE, line_height=None):
+        font = self.get_font(max(11, round(size * self.ui_scale)))
+        words, lines, current = str(text).split(), [], ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            if current and font.size(candidate)[0] > width:
+                lines.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            lines.append(current)
+        gap = line_height or size + 8
+        for row, line in enumerate(lines):
+            self.text(line, x, y + row * gap, size, color)
 
     def line(self, color, start, end, width=1):
         pygame.draw.line(self.screen, color, start, end, width)
@@ -48,9 +64,10 @@ class View:
             self.text("THE CATHEDRAL OF RETURN", 550, 93, 15, GRAY)
             self.text("DUNGEON PONG", 550, 154, 68)
             self.text("Every return restores a memory.", 550, 207, 18, GRAY)
-            self.draw_buttons(game, 270, spacing=42)
+            self.draw_buttons(game, 250 if len(game.menu_items()) > 9 else 270,
+                              spacing=34 if len(game.menu_items()) > 9 else 42)
             data = game.store.data
-            self.text(f"BEST {data['highest_level']:02d}/25   /   MASTERY {data['mastery']}   /   MEMORIES {len(data['codex'])}/5", 550, 624, 15, GRAY)
+            self.text(f"BEST {data['highest_level']:03d}/125   /   MASTERY {data['mastery']}   /   MEMORIES {len(data['codex'])}/5", 550, 624, 15, GRAY)
         elif game.state == "stats":
             self.draw_stats(game)
         elif game.state == "options":
@@ -91,11 +108,14 @@ class View:
 
                 else:
                     checkpoint = game.store.data["checkpoint"]
-                    subtitle = f"Checkpoint: level {min(25, checkpoint + 1)}" if checkpoint else "Every fifth level is a checkpoint."
+                    subtitle = f"Checkpoint: level {min(len(LEVELS), checkpoint + 1)}" if checkpoint else "Every fifth level is a checkpoint."
                     if game.state == "cleared":
                         subtitle = f"Next: {game.level_index + 2:02d}   /   HP restored"
                     if game.state == "victory":
-                        subtitle = "Twenty-five encounters. One very different game."
+                        ending = game.store.data.get("ending") or "LOOP"
+                        subtitle = {"LOOP": "The perfect match begins again.",
+                                    "BREAK": "The Cathedral ends. Grief becomes honest.",
+                                    "RETURN": "Breakfast. Sunlight. Missing her. Living anyway."}[ending]
                     self.text(subtitle, 550, 265, color=GRAY)
                     self.draw_buttons(game, 340)
         if game.store.error:
@@ -115,7 +135,7 @@ class View:
         self.text("W/S or arrows to choose   /   Enter to confirm", 550, 651, 15, GRAY)
 
     def draw_story(self, game):
-        level = 1 if game.pending_start else game.level_index + 1
+        level = (game.pending_start[1] or 1) if game.pending_start else game.level_index + 1
         dungeon = dungeon_for(level)
         self.text(dungeon["name"], 550, 90, 18, dungeon["color"])
         self.text(dungeon["motif"], 550, 132, 16, GRAY)
@@ -125,28 +145,36 @@ class View:
         pygame.draw.rect(self.screen, (12, 18, 18), (120, 220, 860, 250), border_radius=10)
         pygame.draw.rect(self.screen, dungeon["color"], (120, 220, 860, 250), 2, border_radius=10)
         self.text(speaker, 165, 265, 18, dungeon["color"], "midleft")
-        self.text(line, 550, 345, 22)
+        self.wrapped_text(line, 550, 330, 740, 22)
         self.text("Enter / Space to continue", 550, 430, 15, GRAY)
 
     def draw_map(self, game):
         self.text("THE CATHEDRAL", 550, 48, 38)
-        self.text("Five courts. Twenty-five rituals. Optional routes arrive as the Cathedral wakes.", 550, 82, 15, GRAY)
+        self.text("Five dungeons. One hundred twenty-five rooms. Every fifth node is a guardian.", 550, 82, 15, GRAY)
         nodes = map_nodes(game.store.data["highest_level"])
+        highest = game.store.data["highest_level"]
+        active = min(4, (highest - 1) // 25)
         for d in range(5):
-            dungeon = dungeon_for(d * 5 + 1)
-            y = 145 + d * 94
-            self.text(dungeon["name"], 85, y, 15, dungeon["color"], "midleft")
-            previous = None
-            for node in nodes[d * 5:d * 5 + 5]:
-                x = 420 + (node["level"] - d * 5 - 1) * 115
-                ny = y + node["branch"] * 22
-                if previous:
-                    self.line(DARK_GRAY, previous, (x, ny), 2)
-                color = dungeon["color"] if node["unlocked"] else DARK_GRAY
-                pygame.draw.circle(self.screen, color, (x, ny), 15 if node["boss"] else 10, 2)
-                self.text(node["level"], x, ny, 12, WHITE if node["unlocked"] else GRAY)
-                previous = (x, ny)
-            self.text(dungeon["motif"], 420, y + 39, 13, GRAY, "midleft")
+            dungeon = dungeon_for(d * 25 + 1)
+            y = 145 + d * 70
+            marker = "◆" if d == active else "·"
+            self.text(f"{marker} {dungeon['name']}", 55, y, 15,
+                      dungeon["color"] if d <= active else DARK_GRAY, "midleft")
+        dungeon = dungeon_for(active * 25 + 1)
+        current = nodes[active * 25:active * 25 + 25]
+        previous = None
+        for i, node in enumerate(current):
+            col, row = i % 5, i // 5
+            if row % 2:
+                col = 4 - col
+            x, y = 470 + col * 115, 150 + row * 88
+            if previous:
+                self.line(DARK_GRAY, previous, (x, y), 2)
+            color = dungeon["color"] if node["unlocked"] else DARK_GRAY
+            pygame.draw.circle(self.screen, color, (x, y), 16 if node["boss"] else 11, 2)
+            self.text(node["level"], x, y, 11, WHITE if node["unlocked"] else GRAY)
+            previous = (x, y)
+        self.text(dungeon["motif"], 700, 605, 14, GRAY)
         self.text("Esc to return", 550, 650, 15, GRAY)
 
     def draw_codex(self, game):
@@ -233,7 +261,7 @@ class View:
         final = rules.get("objective") == "final"
         contrast = game.store.data["settings"]["high_contrast"]
         dungeon = dungeon_for(game.level_index + 1)
-        self.text(f"{game.level_index + 1:02d} / 25", 550, 37, 18, dungeon["color"])
+        self.text(f"{game.level_index + 1:03d} / {len(LEVELS)}", 550, 37, 18, dungeon["color"])
         self.text(game.config["name"], 550, 68, 22)
         if not final:
             self.text("HP", ARENA.left, 45, 15, GRAY, "midleft")
@@ -503,7 +531,7 @@ class View:
             self.line(color, (projectile.x - sign * 10, projectile.y), (projectile.x - sign * 17, projectile.y))
 
         for ball in game.balls:
-            color = CYAN if ball.charged else WHITE
+            color = GOLD if ball.relic_marked else CYAN if ball.charged else WHITE
             if ball.decoy:
                 # Stealth phantom decoy: solid white like real ball, subtle 2px violet core dot
                 if game.store.data["settings"]["effects"]:
@@ -513,7 +541,7 @@ class View:
                 pygame.draw.circle(self.screen, (190, 130, 240), (round(ball.x), round(ball.y)), 2)
                 continue
 
-            if game.store.data["settings"]["effects"]:
+            if game.store.data["settings"]["effects"] or "ECHO THREAD" in game.store.data["relics"]:
                 for i, pos in enumerate(ball.trail[::2]):
                     pygame.draw.circle(self.screen, GRAY if contrast else DARK_GRAY, pos, 2 + i)
 
@@ -592,7 +620,7 @@ class View:
         self.text("  /  ".join(powers), ARENA.left, 86, 15, CYAN, "midleft")
         if game.encounter.arrow_charge > 0:
             y = round(game.encounter.arrow_target)
-            if game.config.get("name") == "THE HUNTER":
+            if game.config.get("template_name", game.config.get("name")) == "THE HUNTER":
                 origin_x = ENEMY_X if game.direction == 1 else PLAYER_X + PADDLE_W
                 self.line((255, 50, 50), (origin_x, y), (game.player.x, y), 2)
                 pygame.draw.circle(self.screen, RED, (round(game.player.x + PADDLE_W // 2), y), 10, 1)

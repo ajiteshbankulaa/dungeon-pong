@@ -1,7 +1,7 @@
 # Dungeon Pong: The Cathedral of Return
 
 A story-driven skill game where Pong becomes a dungeon crawler. Fight through
-25 current encounters, uncover the Cathedral's memories, draft sidegrade relics,
+125 encounters across five 25-room dungeons, uncover the Cathedral's memories, draft sidegrade relics,
 and master boss patterns without permanent stat inflation.
 
 ## Run
@@ -23,14 +23,14 @@ and readability assists. Assists change preparation time, never damage.
 
 ## Campaign systems
 
-- Five themed dungeon maps and 25 current combat encounters
+- Five themed dungeon maps and 125 named combat encounters
 - Authored story scenes, Codex memories, achievements, and permanent mastery
 - Skill-neutral paddle cosmetics and elite relic drafts
 - Deterministic daily challenge seeds
 - Procedural SFX and an adaptive-score prototype loop
 - Atomic, migrated save data in `data/save.json`
 
-The complete 20–30 hour content plan and story are documented in
+The 20–30 hour content plan and story are documented in
 `NARRATIVE_BIBLE.md`; production priorities are in `PROFESSIONAL_INDIE_AUDIT.md`.
 
 ## Quality

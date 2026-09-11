@@ -137,9 +137,7 @@ class GameTests(unittest.TestCase):
         g.clear_level()
         self.assertEqual(g.state, "cleared")
         g.activate()
-        self.assertEqual(g.state, "story")
-        while g.state == "story":
-            g.advance_story()
+        self.assertEqual(g.state, "play")
         self.assertEqual(g.level_index, 10)
 
     def test_damage_recovery_game_over_and_restart(self):
@@ -430,7 +428,7 @@ class GameTests(unittest.TestCase):
         self.assertLess(ball.vx, 0)
 
     def test_final_phase_one_returned_hit_wins(self):
-        g = self.load(25)
+        g = self.load(125)
         g.enemy_hp = 1
         g.encounter.transition(g)
         paddle = g.enemies[0]
@@ -438,7 +436,7 @@ class GameTests(unittest.TestCase):
         g.balls = [ball]
         g.update_ball(ball, .01)
         self.assertEqual(g.state, "victory")
-        self.assertEqual(g.store.data["checkpoint"], 25)
+        self.assertEqual(g.store.data["checkpoint"], 125)
 
     def test_reflect_against_core_cancels_warning(self):
         g = self.load(15)
@@ -581,7 +579,7 @@ class GameTests(unittest.TestCase):
         self.assertEqual(len(g.enemies), 2)
         self.assertEqual(len(g.balls), 2)
 
-    def test_continue_level_select_allows_choosing_any_unlocked_level(self):
+    def test_continue_level_select_offers_checkpoints_and_frontier(self):
         g = self.game
         g.store.data["highest_level"] = 6
         g.store.data["continue_level"] = 6
@@ -590,12 +588,11 @@ class GameTests(unittest.TestCase):
         g.activate()
         self.assertEqual(g.state, "continue")
         items = g.menu_items()
-        self.assertIn("LEVEL 04: NECROMANCER", items)
-        # Select level 4
-        g.selection = items.index("LEVEL 04: NECROMANCER")
+        self.assertIn("LEVEL 05: THE BONE CASHIER", items)
+        g.selection = items.index("LEVEL 05: THE BONE CASHIER")
         g.activate()
         self.assertEqual(g.state, "play")
-        self.assertEqual(g.level_index, 3)  # Level 4 is index 3
+        self.assertEqual(g.level_index, 4)
 
     def test_bone_spire_is_one_way_and_breaks_in_one_hit(self):
         g = self.load(4)

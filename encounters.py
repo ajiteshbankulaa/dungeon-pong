@@ -251,7 +251,7 @@ class Encounter:
         self.elapsed += dt
         rules = self.rules()
         mechanic = rules.get("mechanic", "")
-        lvl = self.config.get("level", 0)
+        lvl = self.config.get("template_level", self.config.get("level", 0))
 
         # ---- acid puddle timers -----------------------------------------
         for obs in list(game.obstacles):
@@ -398,7 +398,7 @@ class Encounter:
 
     def _fire_arrow(self, game, rules):
         origin = ENEMY_X if game.direction == 1 else PLAYER_X + PADDLE_W
-        name = self.config.get("name", "")
+        name = self.config.get("template_name", self.config.get("name", ""))
 
         if name == "THE HUNTER":
             # The Hunter: rapid high-velocity crimson sniper bolt!
@@ -517,8 +517,8 @@ class Encounter:
     def returned(self, game, ball, by_player):
         rules = self.rules()
         mechanic = rules.get("mechanic", "")
-        name = self.config.get("name", "")
-        lvl = self.config.get("level", 0)
+        name = self.config.get("template_name", self.config.get("name", ""))
+        lvl = self.config.get("template_level", self.config.get("level", 0))
 
         if by_player:
             self.player_shots += 1
@@ -668,7 +668,9 @@ class Encounter:
 
     def wall_bounce(self, game, ball, at_top):
         rules = self.rules()
-        lvl = self.config.get("level", 0)
+        lvl = self.config.get("template_level", self.config.get("level", 0))
+        if "BANKED OATH" in game.store.data.get("relics", ()):
+            ball.relic_banked = True
 
         # Portal wrap
         if rules.get("arena") == "portals" and ball.portal_cooldown <= 0:

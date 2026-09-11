@@ -32,6 +32,7 @@ class Game:
         self.story_page = 0
         self.pending_start = None
         self.daily_mode = False
+        self.challenge_mode = "CAMPAIGN"
         self.level_index = 0
         self.player_hp = 3
         self.invulnerability = 0
@@ -65,7 +66,8 @@ class Game:
 
     @property
     def direction(self):
-        return -1 if self.config.get("reverse") else 1
+        reverse = bool(self.config.get("reverse")) ^ (self.challenge_mode == "MIRROR WORLD")
+        return -1 if reverse else 1
 
     @property
     def stats(self):
@@ -97,6 +99,22 @@ class Game:
         """Start through the authored prologue; direct start() remains test/tool friendly."""
         self.pending_start = ("new", None)
         self.open_story(1)
+
+    def start_challenge(self, name):
+        self.challenge_mode = name
+        self.daily_mode = False
+        self.powers = set(self.store.data["unlocked_powers"]) | {"BLINK"}
+        if name == "REMIX":
+            self.rng.seed(daily_seed() ^ self.store.data["mastery"])
+            self.load_level(0)
+        elif name == "BOSS RUSH":
+            self.load_level(4)
+        else:
+            self.load_level(0)
+
+    def next_level_index(self):
+        step = 5 if self.challenge_mode == "BOSS RUSH" else 1
+        return min(len(LEVELS) - 1, self.level_index + step)
 
     def open_story(self, level):
         self.story_lines = STORY.get(level, ())
@@ -145,6 +163,8 @@ class Game:
         self.encounter = Encounter(self.config)
         assist = self.store.data["settings"].get("assist", "STANDARD")
         self.encounter.pattern_clock += 1.0 if assist == "GENTLE" else 2.0 if assist == "STORY" else 0.0
+        if "QUIET BELL" in self.store.data["relics"]:
+            self.encounter.pattern_clock += .6
         self.player_hp = 3
         self.player = Paddle(PLAYER_X if self.direction == 1 else ENEMY_X, ARENA.centery)
         count = self.config.get("paddles", 1)
@@ -290,10 +310,12 @@ class Game:
         if self.level_damage == 0:
             self.stats["perfect_levels"] += 1
             self.unlock("UNTOUCHABLE")
-        data["mastery"] += 2 if self.level_damage == 0 else 1
-        self.unlock("BONE BROKEN" if level == 5 else "KEEPER" if level == 21 else
-                    "CHANGE THE LOOP" if level == 25 else "")
-        codex_unlock = {1: "THE SILT ARCADE", 5: "THE RETURN", 15: "THE MISSING NOTE", 25: "THE ARCHITECT"}.get(level)
+        data["mastery"] += (3 if "MERCY GLASS" in data["relics"] else 2) if self.level_damage == 0 else 1
+        if level % 5 == 0 and self.level_damage == 0:
+            data["rescued_memories"] = min(25, data["rescued_memories"] + 1)
+        self.unlock("BONE BROKEN" if level == 25 else "KEEPER" if level == 101 else
+                    "CHANGE THE LOOP" if level == 125 else "")
+        codex_unlock = {1: "THE SILT ARCADE", 25: "THE RETURN", 75: "THE MISSING NOTE", 125: "THE ARCHITECT"}.get(level)
         if codex_unlock and codex_unlock not in data["codex"]:
             data["codex"].append(codex_unlock)
         if level % 5 == 0:
@@ -307,13 +329,16 @@ class Game:
             if level >= data["checkpoint"]:
                 data["checkpoint"] = level
                 data["checkpoint_powers"] = sorted(self.powers)
-            cosmetic = {5: "OUTLINE", 10: "NOTCHED", 15: "CATHEDRAL", 20: "PHOSPHOR"}.get(level, "SOLID")
+            cosmetic = {5: "OUTLINE", 10: "NOTCHED", 15: "CATHEDRAL", 20: "PHOSPHOR"}.get(self.config.get("room"), "SOLID")
             if cosmetic not in data["unlocked_cosmetics"]:
                 data["unlocked_cosmetics"].append(cosmetic)
         self.power_choices = [p for p in POWER_CHOICES.get(level, ()) if p not in self.powers]
         data["pending_power_level"] = level if self.power_choices else 0
         if level == len(LEVELS):
             data["completed"] = True
+            data["ending"] = "RETURN" if data["rescued_memories"] >= 15 else "BREAK" if data["rescued_memories"] >= 5 else "LOOP"
+            if self.challenge_mode in ("MIRROR WORLD", "BOSS RUSH", "REMIX") and self.challenge_mode not in data["completed_challenges"]:
+                data["completed_challenges"].append(self.challenge_mode)
             self.state = "victory"
         elif self.config.get("category") == "ELITE" and [r for r in RELICS if r not in data["relics"]]:
             self.relic_choices = [r for r in RELICS if r not in data["relics"]][:3]
@@ -335,7 +360,7 @@ class Game:
         if (self.level_index + 1) % 5 == 0 and self.level_index + 1 == data["checkpoint"]:
             data["checkpoint_powers"] = sorted(self.powers)
         self.store.flush()
-        self.continue_to_level(self.level_index + 1)
+        self.continue_to_level(self.next_level_index())
 
     def choose_relic(self, relic):
         if self.state != "relic" or relic not in self.relic_choices:
@@ -343,7 +368,7 @@ class Game:
         if relic not in self.store.data["relics"]:
             self.store.data["relics"].append(relic)
         self.store.flush()
-        self.continue_to_level(self.level_index + 1)
+        self.continue_to_level(self.next_level_index())
 
     def update(self, dt, movement=0):
         if self.state != "play":
@@ -806,6 +831,13 @@ class Game:
             self.return_count += 1
             self.stats["returns"] += 1
             self.unlock("FIRST RETURN")
+            if "HUNTER'S MARK" in self.store.data["relics"] and abs(ball.y - self.player.y) <= self.player.height * .16:
+                ball.relic_marked = True
+                self.callout("HUNTER'S MARK", GOLD, .55)
+            if "BANKED OATH" in self.store.data["relics"] and ball.relic_banked:
+                self.impact(ball.x, ball.y, GOLD)
+                self.callout("BANKED OATH", GOLD, .55)
+                ball.relic_banked = False
             self.stats["longest_rally"] = max(self.stats["longest_rally"], self.rally)
             ball.returned = True
             ball.charged = "SHOCK" in self.powers and self.return_count % 3 == 0
@@ -831,6 +863,7 @@ class Game:
             for paddle in list(self.enemies):
                 if circle_rect(ball.x, ball.y, BALL_RADIUS, paddle.rect):
                     ball.rebound(paddle, -self.direction)
+                    ball.relic_marked = False
                     self.enemy_returns += 1
                     if ball.fireball:
                         self.callout("INFERNO SLAM!", (255, 80, 20), 0.8)
@@ -917,13 +950,18 @@ class Game:
 
     def menu_items(self):
         if self.state == "menu":
-            return ["PLAY", "CONTINUE", "STATS", "OPTIONS", "DUNGEON MAP", "CODEX", "DAILY CHALLENGE", "QUIT"]
+            items = ["PLAY", "CONTINUE", "STATS", "OPTIONS", "DUNGEON MAP", "CODEX", "DAILY CHALLENGE"]
+            if self.store.data["completed"]:
+                items += ["REMIX", "MIRROR WORLD", "BOSS RUSH"]
+            return items + ["QUIT"]
         if self.state in ("map", "codex", "story"):
             return [] if self.state == "story" else ["BACK"]
         if self.state == "continue":
             highest = max(1, min(len(LEVELS), self.store.data.get("highest_level", 1)))
             items = []
             for lvl in range(1, highest + 1):
+                if lvl not in (1, highest) and lvl % 5 != 0:
+                    continue
                 name = LEVELS[lvl - 1]["name"]
                 items.append(f"LEVEL {lvl:02d}: {name}")
             items.append("BACK")
@@ -980,7 +1018,7 @@ class Game:
         elif action == "RESTART CHECKPOINT":
             self.start("checkpoint")
         elif action == "NEXT LEVEL":
-            self.continue_to_level(self.level_index + 1)
+            self.continue_to_level(self.next_level_index())
         elif action == "RESUME":
             self.state = "play"
         elif action in ("MENU", "BACK"):
@@ -999,6 +1037,8 @@ class Game:
             self.state, self.selection = "codex", 0
         elif action == "DAILY CHALLENGE":
             self.start_daily()
+        elif action in ("REMIX", "MIRROR WORLD", "BOSS RUSH"):
+            self.start_challenge(action)
         elif action.startswith("EFFECTS"):
             self.store.data["settings"]["effects"] = not self.store.data["settings"]["effects"]
             self.store.flush()

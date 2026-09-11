@@ -3,15 +3,15 @@ from datetime import date
 import hashlib
 
 DUNGEONS = (
-    {"name": "THE SILT ARCADE", "levels": range(1, 6), "color": (74, 214, 152),
+    {"name": "THE SILT ARCADE", "levels": range(1, 26), "color": (74, 214, 152),
      "motif": "What survives when a place forgets its players?"},
-    {"name": "THE HUNT GALLERY", "levels": range(6, 11), "color": (210, 90, 255),
+    {"name": "THE HUNT GALLERY", "levels": range(26, 51), "color": (210, 90, 255),
      "motif": "Can an enemy choose to become an ally?"},
-    {"name": "THE DREAM ENGINE", "levels": range(11, 16), "color": (92, 148, 255),
+    {"name": "THE DREAM ENGINE", "levels": range(51, 76), "color": (92, 148, 255),
      "motif": "Every restored memory costs another."},
-    {"name": "THE BROKEN HEAVENS", "levels": range(16, 21), "color": (255, 196, 74),
+    {"name": "THE BROKEN HEAVENS", "levels": range(76, 101), "color": (255, 196, 74),
      "motif": "Who deserves the memories of a dying world?"},
-    {"name": "THE INFINITE COURT", "levels": range(21, 26), "color": (255, 90, 110),
+    {"name": "THE INFINITE COURT", "levels": range(101, 126), "color": (255, 90, 110),
      "motif": "A perfect loop can never grow."},
 )
 
@@ -83,6 +83,34 @@ STORY = {
          "MARA", "I already did."),
 }
 
+# The original ten threshold scenes now anchor a 125-room, five-act campaign.
+_anchor = STORY
+STORY = {1: _anchor[1], 25: _anchor[5], 26: _anchor[6], 50: _anchor[10],
+         51: _anchor[11], 75: _anchor[15], 76: _anchor[16], 100: _anchor[20],
+         101: _anchor[21], 125: _anchor[25]}
+STORY.update({
+    5: ("MOSS", "This cabinet remembers a birthday, but not whose.", "THE KEEPER", "Leave the candle lit. Someone may return for it."),
+    10: ("COIN-GHOST", "I cost one quarter and an entire Saturday.", "MOSS", "Luxury entertainment. I cost one spilled soda."),
+    15: ("SAINT OF THE HIGH SCORE", "A score is a number begging to become a story.", "THE KEEPER", "Then remember who stood beside it."),
+    20: ("PLAYER TWO", "You always serve first. Did you notice?", "THE KEEPER", "No. But something in me expected it."),
+    30: ("JUNE", "A good hunt ends with both people laughing.", "MOSS", "Your arrows have a strange way of expressing joy."),
+    35: ("ADA", "I am every door they almost opened.", "THE KEEPER", "Choose one now. Let it become real."),
+    40: ("JUNE", "The Gallery redraws itself when we disagree.", "ADA", "Then let us disagree somewhere with better lighting."),
+    45: ("THE CURATOR", "Unchosen lives belong behind glass.", "ADA", "Break the glass, Keeper."),
+    55: ("CHORISTER", "Four notes remain missing from the song.", "MOSS", "I can hum badly enough to replace at least six."),
+    60: ("DREAM EATER", "I do not eat dreams. I hide them from the Engine.", "THE KEEPER", "Then we have been fighting the wrong hunger."),
+    65: ("MOSS", "That room vanished after we won.", "THE KEEPER", "From now on, we count what victory costs."),
+    70: ("THE MISSING MEASURE", "RESTORATION COMPLETE: ORIGINAL DISCARDED.", "THE KEEPER", "No more clean victories."),
+    80: ("ZEUS", "Grief requires a throne.", "LORD 666", "Grief requires lunch. You become unbearable hungry."),
+    85: ("THE ANGEL", "Anger is a blade.", "MOSS", "It is also a lantern. Depends which end you hold."),
+    90: ("THE ACCUSED", "Mara caused the fire.", "THE KEEPER", "That memory has been edited. I can feel the cut."),
+    95: ("LORD 666", "I was built to hold the thought he hated himself for having.", "THE KEEPER", "You can put it down without pretending it was harmless."),
+    105: ("MOSS", "The first room is here again, but the birthday has a name now.", "THE KEEPER", "Ilyan. Eight candles. Mara stole the blue one."),
+    110: ("JUNE", "The old route says we must fight.", "ADA", "How fortunate that I specialize in roads not taken."),
+    115: ("THE ORIGINAL", "You are not Mara.", "THE KEEPER", "No. I am what Ilyan learned from loving her."),
+    120: ("MARA'S RETURN", "If remembering me prevents you from living, remember me differently.", "ILYAN", "I am trying."),
+})
+
 RELICS = {
     "BANKED OATH": "A wall bank charges the next paddle return with a brighter impact.",
     "MERCY GLASS": "Perfect levels reveal an additional memory in the Codex.",
@@ -109,7 +137,7 @@ ACHIEVEMENTS = {
 
 
 def dungeon_for(level):
-    return DUNGEONS[min(4, max(0, (level - 1) // 5))]
+    return DUNGEONS[min(4, max(0, (level - 1) // 25))]
 
 
 def daily_seed(today=None):
@@ -120,7 +148,7 @@ def daily_seed(today=None):
 def map_nodes(highest_level):
     """Five compact themed routes; locked nodes remain visible."""
     nodes = []
-    for level in range(1, 26):
+    for level in range(1, 126):
         dungeon = dungeon_for(level)
         branch = (-1, 0, 1, 0, 0)[(level - 1) % 5]
         nodes.append({"level": level, "name": dungeon["name"], "branch": branch,

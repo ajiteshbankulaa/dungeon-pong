@@ -49,7 +49,7 @@ The finale asks whether to keep, break, or transform the loop.
 
 Use 10–20 room maps: start -> 2–3 branches -> reward/story/shop -> elite gate
 -> boss. Optional rooms grant lore, cosmetics, high-risk relics, and shortcuts.
-The expanded production target is 100 authored rooms and 20–30 hours including
+The expanded campaign contains 125 named encounters and targets 20–30 hours including
 optional character routes, mastery rematches, and three endings; see
 `NARRATIVE_BIBLE.md`. Room count must create emotional pacing, not filler.
 

@@ -50,6 +50,8 @@ class Ball:
     stasis_vx: float = 0.0
     stasis_vy: float = 0.0
     yin_yang: int = 0         # Nirvana: 1 = Yin (Light/Cyan), -1 = Yang (Dark/Gold)
+    relic_marked: bool = False
+    relic_banked: bool = False
 
     def cap(self):
         # Gravity and repeated banks must not leave a near-vertical, endless rally.

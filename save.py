@@ -7,14 +7,15 @@ from pathlib import Path
 
 POWERS = ("BLINK", "REFLECT", "SHOCK", "RICOCHET", "CHRONO", "AEGIS", "INFERNO", "TELEKINESIS")
 COSMETICS = ("SOLID", "OUTLINE", "NOTCHED", "CATHEDRAL", "PHOSPHOR")
-MAX_LEVELS = 25
+MAX_LEVELS = 125
 DEFAULT_PATH = Path(__file__).resolve().parent / "data" / "save.json"
 DEFAULT = {
     "version": 2, "highest_level": 1, "checkpoint": 0, "continue_level": 1,
     "completed": False, "pending_power_level": 0, "unlocked_powers": [], "equipped_powers": [],
     "checkpoint_powers": [], "unlocked_cosmetics": ["SOLID"],
     "selected_cosmetic": "SOLID", "mastery": 0, "relics": [], "codex": ["THE KEEPER"],
-    "achievements": [], "seen_story": [], "daily_best": {},
+    "achievements": [], "seen_story": [], "daily_best": {}, "ending": "",
+    "completed_challenges": [], "rescued_memories": 0,
     "settings": {"effects": True, "high_contrast": False, "sound": True,
                  "presentation": "CATHEDRAL", "reduced_flash": False,
                  "assist": "STANDARD", "music_volume": 7, "sfx_volume": 8,
@@ -82,6 +83,14 @@ class SaveStore:
         mastery = raw.get("mastery", 0)
         if type(mastery) is int:
             self.data["mastery"] = max(0, min(9999, mastery))
+        if raw.get("ending") in ("", "LOOP", "BREAK", "RETURN"):
+            self.data["ending"] = raw.get("ending", "")
+        challenges = raw.get("completed_challenges", [])
+        if isinstance(challenges, list):
+            self.data["completed_challenges"] = [v for v in ("MIRROR WORLD", "BOSS RUSH", "REMIX") if v in challenges]
+        rescued = raw.get("rescued_memories", 0)
+        if type(rescued) is int:
+            self.data["rescued_memories"] = max(0, min(25, rescued))
         daily = raw.get("daily_best", {})
         if isinstance(daily, dict):
             self.data["daily_best"] = {str(k)[:10]: max(0, min(10**9, v))

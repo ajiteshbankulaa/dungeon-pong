@@ -7,7 +7,7 @@ prison. The emotional rhythm moves from loneliness to wonder, fellowship,
 suspicion, righteous anger, horror, forgiveness, and brilliant earned joy.
 Comedy and small domestic details keep the sadness human rather than oppressive.
 
-Target structure: five dungeons of 18–24 rooms, 100 authored rooms total,
+Implemented structure: five dungeons of 25 rooms, 125 named combat rooms total,
 roughly 16–20 campaign hours plus 6–10 hours of optional character rooms,
 rematches, alternate routes, and endings. Combat rooms average 8–12 minutes;
 story, puzzle, rest, shop, and exploration rooms create pacing.
