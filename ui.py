@@ -2,6 +2,7 @@
 import math
 import pygame
 from levels import POWER_TEXT
+from campaign import CODEX, RELICS, dungeon_for, map_nodes
 from settings import (WIDTH, HEIGHT, ARENA, BALL_RADIUS, BLACK, WHITE, GRAY,
                       DARK_GRAY, CYAN, RED, GOLD, VIOLET, PLAYER_X, ENEMY_X, PADDLE_W,
                       HELL_RED, HOLY_GOLD, OCEAN_BLUE, NIRVANA_TEAL, clamp)
@@ -12,6 +13,7 @@ class View:
         self.screen = screen
         self.fonts = {s: pygame.font.SysFont("consolas", s, bold=s >= 30) for s in (15, 16, 17, 18, 20, 22, 30, 38, 50, 68)}
         self.buttons = []
+        self.ui_scale = 1.0
 
     def get_font(self, size):
         if size not in self.fonts:
@@ -19,7 +21,8 @@ class View:
         return self.fonts[size]
 
     def text(self, text, x, y, size=18, color=WHITE, anchor="center"):
-        image = self.get_font(size).render(str(text), True, color)
+        scaled = max(11, round(size * self.ui_scale))
+        image = self.get_font(scaled).render(str(text), True, color)
         self.screen.blit(image, image.get_rect(**{anchor: (x, y)}))
 
     def line(self, color, start, end, width=1):
@@ -37,25 +40,33 @@ class View:
         pygame.draw.polygon(self.screen, color, [(x - radius, y), (x, y - radius), (x + radius, y), (x, y + radius)], 2 if outline else 0)
 
     def draw(self, game):
-        self.screen.fill(BLACK)
+        self.ui_scale = .75 + game.store.data["settings"].get("ui_scale", 10) * .025
+        profile = game.store.data["settings"].get("presentation", "CATHEDRAL")
+        self.screen.fill((2, 8, 7) if profile == "CATHEDRAL" else BLACK)
         self.buttons = []
         if game.state == "menu":
-            self.text("A SMALL ARCADE DESCENT", 550, 128, 15, GRAY)
-            self.text("DUNGEON PONG", 550, 193, 68)
-            self.text("It starts as Pong. It does not stay that way.", 550, 251, 18, GRAY)
-            self.draw_buttons(game, 333)
+            self.text("THE CATHEDRAL OF RETURN", 550, 93, 15, GRAY)
+            self.text("DUNGEON PONG", 550, 154, 68)
+            self.text("Every return restores a memory.", 550, 207, 18, GRAY)
+            self.draw_buttons(game, 270, spacing=42)
             data = game.store.data
-            self.text(f"CONTINUE  {data['continue_level']:02d}     /     BEST  {data['highest_level']:02d}", 550, 600, 15, GRAY)
+            self.text(f"BEST {data['highest_level']:02d}/25   /   MASTERY {data['mastery']}   /   MEMORIES {len(data['codex'])}/5", 550, 624, 15, GRAY)
         elif game.state == "stats":
             self.draw_stats(game)
         elif game.state == "options":
-            self.text("OPTIONS", 550, 140, 50)
-            self.text("Boss victories unlock cosmetic paddle styles.", 550, 210, color=GRAY)
-            self.draw_buttons(game, 290)
+            self.text("PRESENTATION & ACCESSIBILITY", 550, 55, 38)
+            self.text("Enter cycles a setting. Mechanical assists extend readability, not damage.", 550, 98, 15, GRAY)
+            self.draw_buttons(game, 135, spacing=38)
         elif game.state == "continue":
             self.text("SELECT ENCOUNTER", 550, 95, 38)
             self.text("Start from any unlocked level.", 550, 142, 16, GRAY)
             self.draw_level_select(game)
+        elif game.state == "map":
+            self.draw_map(game)
+        elif game.state == "codex":
+            self.draw_codex(game)
+        elif game.state == "story":
+            self.draw_story(game)
         else:
             self.draw_arena(game)
             if game.state != "play":
@@ -63,11 +74,20 @@ class View:
                 shade.fill((5, 5, 6, 232))
                 self.screen.blit(shade, (0, 0))
                 pygame.draw.rect(self.screen, BLACK, (0, 638, WIDTH, 42))
-                titles = {"pause": "PAUSED", "defeat": "DEFEATED", "victory": "STILL PONG.", "cleared": "LEVEL CLEARED", "powerup": "CHOOSE A POWER"}
+                titles = {"pause": "PAUSED", "defeat": "DEFEATED", "victory": "CHANGE THE LOOP.", "cleared": "LEVEL CLEARED", "powerup": "CHOOSE A POWER", "relic": "CHOOSE A RELIC"}
                 self.text(titles.get(game.state, ""), 550, 205, 50)
                 if game.state == "powerup":
                     self.text("Small choices. Different ways to survive.", 550, 262, color=GRAY)
                     self.draw_buttons(game, 345, spacing=100, descriptions=True)
+
+                elif game.state == "relic":
+                    self.text("A sidegrade for this journey. Your paddle remains honest.", 550, 262, color=GRAY)
+                    for i, item in enumerate(game.menu_items()):
+                        y = 340 + i * 95
+                        selected = i == game.selection
+                        self.buttons.append(pygame.Rect(220, y - 25, 660, 72))
+                        self.text(item, 550, y, 22, WHITE if selected else GRAY)
+                        self.text(RELICS[item], 550, y + 29, 14, GRAY)
 
                 else:
                     checkpoint = game.store.data["checkpoint"]
@@ -93,6 +113,53 @@ class View:
             if descriptions:
                 self.text(POWER_TEXT[item], 550, y + 30, 15, GRAY)
         self.text("W/S or arrows to choose   /   Enter to confirm", 550, 651, 15, GRAY)
+
+    def draw_story(self, game):
+        level = 1 if game.pending_start else game.level_index + 1
+        dungeon = dungeon_for(level)
+        self.text(dungeon["name"], 550, 90, 18, dungeon["color"])
+        self.text(dungeon["motif"], 550, 132, 16, GRAY)
+        i = min(game.story_page, max(0, len(game.story_lines) - 2))
+        speaker = game.story_lines[i] if game.story_lines else "THE KEEPER"
+        line = game.story_lines[i + 1] if i + 1 < len(game.story_lines) else "..."
+        pygame.draw.rect(self.screen, (12, 18, 18), (120, 220, 860, 250), border_radius=10)
+        pygame.draw.rect(self.screen, dungeon["color"], (120, 220, 860, 250), 2, border_radius=10)
+        self.text(speaker, 165, 265, 18, dungeon["color"], "midleft")
+        self.text(line, 550, 345, 22)
+        self.text("Enter / Space to continue", 550, 430, 15, GRAY)
+
+    def draw_map(self, game):
+        self.text("THE CATHEDRAL", 550, 48, 38)
+        self.text("Five courts. Twenty-five rituals. Optional routes arrive as the Cathedral wakes.", 550, 82, 15, GRAY)
+        nodes = map_nodes(game.store.data["highest_level"])
+        for d in range(5):
+            dungeon = dungeon_for(d * 5 + 1)
+            y = 145 + d * 94
+            self.text(dungeon["name"], 85, y, 15, dungeon["color"], "midleft")
+            previous = None
+            for node in nodes[d * 5:d * 5 + 5]:
+                x = 420 + (node["level"] - d * 5 - 1) * 115
+                ny = y + node["branch"] * 22
+                if previous:
+                    self.line(DARK_GRAY, previous, (x, ny), 2)
+                color = dungeon["color"] if node["unlocked"] else DARK_GRAY
+                pygame.draw.circle(self.screen, color, (x, ny), 15 if node["boss"] else 10, 2)
+                self.text(node["level"], x, ny, 12, WHITE if node["unlocked"] else GRAY)
+                previous = (x, ny)
+            self.text(dungeon["motif"], 420, y + 39, 13, GRAY, "midleft")
+        self.text("Esc to return", 550, 650, 15, GRAY)
+
+    def draw_codex(self, game):
+        self.text("MEMORY CODEX", 550, 55, 38)
+        unlocked = set(game.store.data["codex"])
+        for i, (title, body) in enumerate(CODEX):
+            y = 125 + i * 92
+            known = title in unlocked
+            self.text(title if known else "????????", 130, y, 18, CYAN if known else DARK_GRAY, "midleft")
+            self.text(body if known else "This memory has not returned.", 130, y + 30, 15, WHITE if known else GRAY, "midleft")
+        achievements = len(game.store.data["achievements"])
+        self.text(f"ACHIEVEMENTS {achievements}/5   /   RELICS {len(game.store.data['relics'])}/{len(RELICS)}", 550, 610, 15, GOLD)
+        self.text("Esc to return", 550, 650, 15, GRAY)
 
     def draw_level_select(self, game):
         items = game.menu_items()
@@ -165,7 +232,8 @@ class View:
         phase = game.encounter.phase
         final = rules.get("objective") == "final"
         contrast = game.store.data["settings"]["high_contrast"]
-        self.text(f"{game.level_index + 1:02d} / 20", 550, 37, 18, GRAY)
+        dungeon = dungeon_for(game.level_index + 1)
+        self.text(f"{game.level_index + 1:02d} / 25", 550, 37, 18, dungeon["color"])
         self.text(game.config["name"], 550, 68, 22)
         if not final:
             self.text("HP", ARENA.left, 45, 15, GRAY, "midleft")
@@ -221,7 +289,14 @@ class View:
                 self.line(CYAN, (p_rect.left - 6, p_rect.centery - 8), (p_rect.left - 2, p_rect.centery + 8), 2)
                 self.line(CYAN, (p_rect.right + 2, p_rect.centery - 8), (p_rect.right + 6, p_rect.centery + 8), 2)
             else:
-                pygame.draw.rect(self.screen, WHITE, p_rect, 2 if style == "OUTLINE" else 0, border_radius=3)
+                if style == "CATHEDRAL":
+                    pygame.draw.rect(self.screen, VIOLET, p_rect, border_radius=6)
+                    self.diamond(p_rect.centerx, p_rect.centery, WHITE, True, 5)
+                elif style == "PHOSPHOR":
+                    pygame.draw.rect(self.screen, (145, 255, 170), p_rect, border_radius=1)
+                    pygame.draw.rect(self.screen, (145, 255, 170), p_rect.inflate(8, 8), 1)
+                else:
+                    pygame.draw.rect(self.screen, WHITE, p_rect, 2 if style == "OUTLINE" else 0, border_radius=3)
             if style == "NOTCHED":
                 pygame.draw.rect(self.screen, BLACK, (game.player.x + 4, game.player.y - 3, 6, 6))
         if game.config.get("reverse"):
@@ -485,8 +560,9 @@ class View:
                 pygame.draw.circle(self.screen, CYAN if ball.charged else GRAY,
                                    (round(ball.x), round(ball.y)), BALL_RADIUS + 5, 1)
 
-        for x, y, color, life in game.effects:
-            pygame.draw.circle(self.screen, color, (round(x), round(y)), int(6 + (1 - life / .18) * 22), 1)
+        if not game.store.data["settings"].get("reduced_flash", False):
+            for x, y, color, life in game.effects:
+                pygame.draw.circle(self.screen, color, (round(x), round(y)), int(6 + (1 - life / .18) * 22), 1)
         if game.invulnerability > 0 and game.cooldown > 3.1:
             rect = game.player.rect
             pygame.draw.rect(self.screen, CYAN, rect.inflate(16, 14), 2, border_radius=5)

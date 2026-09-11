@@ -6,14 +6,19 @@ import os
 from pathlib import Path
 
 POWERS = ("BLINK", "REFLECT", "SHOCK", "RICOCHET", "CHRONO", "AEGIS", "INFERNO", "TELEKINESIS")
-COSMETICS = ("SOLID", "OUTLINE", "NOTCHED")
+COSMETICS = ("SOLID", "OUTLINE", "NOTCHED", "CATHEDRAL", "PHOSPHOR")
 MAX_LEVELS = 25
 DEFAULT_PATH = Path(__file__).resolve().parent / "data" / "save.json"
 DEFAULT = {
-    "version": 1, "highest_level": 1, "checkpoint": 0, "continue_level": 1,
+    "version": 2, "highest_level": 1, "checkpoint": 0, "continue_level": 1,
     "completed": False, "pending_power_level": 0, "unlocked_powers": [], "equipped_powers": [],
     "checkpoint_powers": [], "unlocked_cosmetics": ["SOLID"],
-    "selected_cosmetic": "SOLID", "settings": {"effects": True, "high_contrast": False, "sound": True},
+    "selected_cosmetic": "SOLID", "mastery": 0, "relics": [], "codex": ["THE KEEPER"],
+    "achievements": [], "seen_story": [], "daily_best": {},
+    "settings": {"effects": True, "high_contrast": False, "sound": True,
+                 "presentation": "CATHEDRAL", "reduced_flash": False,
+                 "assist": "STANDARD", "music_volume": 7, "sfx_volume": 8,
+                 "intensity": 8, "screen_shake": 5, "ui_scale": 10},
     "stats": {key: 0 for key in (
         "wins", "losses", "returns", "damage_taken", "bosses_defeated",
         "enemies_defeated", "deaths", "longest_rally", "projectiles_dodged",
@@ -65,10 +70,33 @@ class SaveStore:
         selected = raw.get("selected_cosmetic")
         if selected in self.data["unlocked_cosmetics"]:
             self.data["selected_cosmetic"] = selected
+        for key, allowed in (("relics", ("BANKED OATH", "MERCY GLASS", "ECHO THREAD", "QUIET BELL", "HUNTER'S MARK")),
+                             ("codex", ("THE KEEPER", "THE SILT ARCADE", "THE ARCHITECT", "THE RETURN", "THE MISSING NOTE")),
+                             ("achievements", ("FIRST RETURN", "UNTOUCHABLE", "BONE BROKEN", "KEEPER", "CHANGE THE LOOP"))):
+            values = raw.get(key, [])
+            if isinstance(values, list):
+                self.data[key] = [v for v in allowed if v in values]
+        seen = raw.get("seen_story", [])
+        if isinstance(seen, list):
+            self.data["seen_story"] = [v for v in seen if type(v) is int and 1 <= v <= MAX_LEVELS]
+        mastery = raw.get("mastery", 0)
+        if type(mastery) is int:
+            self.data["mastery"] = max(0, min(9999, mastery))
+        daily = raw.get("daily_best", {})
+        if isinstance(daily, dict):
+            self.data["daily_best"] = {str(k)[:10]: max(0, min(10**9, v))
+                                       for k, v in daily.items() if type(v) is int}
         settings = raw.get("settings", {})
         if isinstance(settings, dict):
             for key in self.data["settings"]:
-                if type(settings.get(key)) is bool:
+                default = self.data["settings"][key]
+                if type(default) is bool and type(settings.get(key)) is bool:
+                    self.data["settings"][key] = settings[key]
+                elif type(default) is int and type(settings.get(key)) is int:
+                    self.data["settings"][key] = max(0, min(10, settings[key]))
+                elif key == "presentation" and settings.get(key) in ("CLASSIC", "CATHEDRAL"):
+                    self.data["settings"][key] = settings[key]
+                elif key == "assist" and settings.get(key) in ("STANDARD", "GENTLE", "STORY"):
                     self.data["settings"][key] = settings[key]
 
         stats = raw.get("stats", {})

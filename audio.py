@@ -234,6 +234,22 @@ def _make_acid_splat():
     return _mix(ns, lo)
 
 
+def _make_cathedral_loop():
+    """Eight-second restrained arpeggio; a replaceable adaptive-score prototype."""
+    n = int(_RATE * 8.0)
+    layers = []
+    for beat, freq in enumerate((110, 165, 220, 247, 110, 196, 220, 330,
+                                  110, 165, 262, 247, 110, 196, 294, 220)):
+        start = int(beat * .5 * _RATE)
+        tone = _sine(freq, .7, volume=.075, envelope=(.08, .05, .65, .25))
+        padded = _buf(n)
+        for i, sample in enumerate(tone):
+            if start + i < n:
+                padded[start + i] = sample
+        layers.append(padded)
+    return _mix(*layers)
+
+
 # --------------------------------------------------------------------------- #
 #  Public Audio class                                                           #
 # --------------------------------------------------------------------------- #
@@ -247,6 +263,7 @@ class Audio:
         self._ok = False
         self._sounds: dict = {}
         self.enabled = enabled
+        self.sfx_volume = 1.0
         if not _HAVE_PYGAME:
             return
         try:
@@ -269,6 +286,7 @@ class Audio:
             "enemy_hurt":  _make_enemy_hurt,
             "victory":     _make_victory,
             "acid":        _make_acid_splat,
+            "music":       _make_cathedral_loop,
         }
         for name, fn in recipes.items():
             try:
@@ -286,7 +304,7 @@ class Audio:
         snd = self._sounds.get(name)
         if snd is None:
             return
-        snd.set_volume(max(0.0, min(1.0, volume)))
+        snd.set_volume(max(0.0, min(1.0, volume * self.sfx_volume)))
         snd.play()
 
     # Convenience wrappers (callers don't need to remember string keys)
@@ -305,3 +323,25 @@ class Audio:
     def menu_click(self):    self.play("menu")
     def victory(self):       self.play("victory")
     def acid_splat(self):    self.play("acid")
+
+    def start_music(self, volume=.24):
+        if not self._ok or not self.enabled or "music" not in self._sounds:
+            return
+        self._sounds["music"].set_volume(max(0.0, min(1.0, volume)))
+        self._sounds["music"].play(loops=-1, fade_ms=700)
+
+    def set_music_volume(self, volume):
+        if "music" in self._sounds:
+            self._sounds["music"].set_volume(max(0.0, min(1.0, volume)))
+
+    def set_sfx_volume(self, volume):
+        self.sfx_volume = max(0.0, min(1.0, volume))
+
+    def set_enabled(self, enabled):
+        self.enabled = enabled
+        if not self._ok:
+            return
+        if enabled:
+            self.start_music()
+        else:
+            pygame.mixer.stop()

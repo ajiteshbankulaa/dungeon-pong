@@ -6,6 +6,7 @@ from entities import Ball, Paddle, circle_rect
 from encounters import Encounter
 from levels import LEVELS, POWER_CHOICES
 from save import SaveStore
+from campaign import STORY, RELICS, CODEX, ACHIEVEMENTS, daily_seed, dungeon_for, map_nodes
 from settings import (ARENA, PLAYER_X, ENEMY_X, PLAYER_SPEED, PADDLE_W,
                       BALL_RADIUS, BALL_START_SPEED, BALL_MAX_SPEED, WHITE, CYAN, RED, GRAY,
                       GOLD, VIOLET, clamp, predict_y)
@@ -26,6 +27,11 @@ class Game:
         self.effects = []
         self.powers = {"BLINK"}
         self.power_choices = []
+        self.relic_choices = []
+        self.story_lines = ()
+        self.story_page = 0
+        self.pending_start = None
+        self.daily_mode = False
         self.level_index = 0
         self.player_hp = 3
         self.invulnerability = 0
@@ -87,10 +93,58 @@ class Game:
             self.power_choices = [p for p in POWER_CHOICES[pending] if p not in self.powers]
             self.state = "powerup" if self.power_choices else "cleared"
 
+    def begin_campaign(self):
+        """Start through the authored prologue; direct start() remains test/tool friendly."""
+        self.pending_start = ("new", None)
+        self.open_story(1)
+
+    def open_story(self, level):
+        self.story_lines = STORY.get(level, ())
+        if not self.story_lines:
+            mode, chosen = self.pending_start or ("continue", level)
+            self.pending_start = None
+            self.start(mode, chosen)
+            return
+        self.story_page = 0
+        self.state = "story"
+        self.selection = 0
+        if level not in self.store.data["seen_story"]:
+            self.store.data["seen_story"].append(level)
+            self.store.flush()
+
+    def continue_to_level(self, index):
+        level = max(1, min(len(LEVELS), index + 1))
+        if level in STORY and level not in self.store.data["seen_story"]:
+            self.pending_start = ("continue", level)
+            self.open_story(level)
+        else:
+            self.load_level(index)
+
+    def advance_story(self):
+        self.story_page += 2
+        if self.story_page < len(self.story_lines):
+            return
+        mode, chosen = self.pending_start or ("continue", 1)
+        self.pending_start = None
+        self.start(mode, chosen)
+
+    def start_daily(self):
+        self.daily_mode = True
+        self.rng.seed(daily_seed())
+        level = 1 + daily_seed() % len(LEVELS)
+        self.start("continue", level)
+
+    def unlock(self, achievement):
+        if achievement in ACHIEVEMENTS and achievement not in self.store.data["achievements"]:
+            self.store.data["achievements"].append(achievement)
+            self.callout(f"ACHIEVEMENT: {achievement}", GOLD, 2.0)
+
 
     def load_level(self, index):
         self.level_index = max(0, min(len(LEVELS) - 1, index))
         self.encounter = Encounter(self.config)
+        assist = self.store.data["settings"].get("assist", "STANDARD")
+        self.encounter.pattern_clock += 1.0 if assist == "GENTLE" else 2.0 if assist == "STORY" else 0.0
         self.player_hp = 3
         self.player = Paddle(PLAYER_X if self.direction == 1 else ENEMY_X, ARENA.centery)
         count = self.config.get("paddles", 1)
@@ -106,7 +160,7 @@ class Game:
         self.invulnerability = self.cooldown = self.hit_freeze = 0
         self.level_damage = self.rally = self.enemy_returns = 0
         self.return_count = 0
-        self.intro = 4.0 if index == 0 else 2.8
+        self.intro = (4.0 if index == 0 else 2.8) + (0.8 if assist == "GENTLE" else 1.5 if assist == "STORY" else 0)
         self.notice = self.config["hint"]
         self.combat_notice = ""
         self.combat_notice_timer = 0
@@ -124,9 +178,10 @@ class Game:
                                    vy=math.sin(angle) * BALL_START_SPEED, delay=.7 + i * .8))
 
     def impact(self, x, y, color=WHITE):
-        if self.store.data["settings"]["effects"]:
+        settings = self.store.data["settings"]
+        if settings["effects"] and settings.get("intensity", 8) > 0:
             self.effects.append([x, y, color, .18])
-            self.effects = self.effects[-24:]
+            self.effects = self.effects[-max(4, settings.get("intensity", 8) * 3):]
 
     def callout(self, text, color=WHITE, duration=.8):
         self.combat_notice = text
@@ -234,6 +289,16 @@ class Game:
         self.stats["enemies_defeated"] += self.config.get("paddles", 1)
         if self.level_damage == 0:
             self.stats["perfect_levels"] += 1
+            self.unlock("UNTOUCHABLE")
+        data["mastery"] += 2 if self.level_damage == 0 else 1
+        self.unlock("BONE BROKEN" if level == 5 else "KEEPER" if level == 21 else
+                    "CHANGE THE LOOP" if level == 25 else "")
+        codex_unlock = {1: "THE SILT ARCADE", 5: "THE RETURN", 15: "THE MISSING NOTE", 25: "THE ARCHITECT"}.get(level)
+        if codex_unlock and codex_unlock not in data["codex"]:
+            data["codex"].append(codex_unlock)
+        if level % 5 == 0:
+            available = [r for r in RELICS if r not in data["relics"]]
+            self.relic_choices = available[:3]
         data["highest_level"] = max(data["highest_level"], min(len(LEVELS), level + 1))
         data["continue_level"] = min(len(LEVELS), level + 1)
         data["equipped_powers"] = sorted(self.powers)
@@ -242,7 +307,7 @@ class Game:
             if level >= data["checkpoint"]:
                 data["checkpoint"] = level
                 data["checkpoint_powers"] = sorted(self.powers)
-            cosmetic = "OUTLINE" if level == 5 else "NOTCHED" if level >= 10 else "SOLID"
+            cosmetic = {5: "OUTLINE", 10: "NOTCHED", 15: "CATHEDRAL", 20: "PHOSPHOR"}.get(level, "SOLID")
             if cosmetic not in data["unlocked_cosmetics"]:
                 data["unlocked_cosmetics"].append(cosmetic)
         self.power_choices = [p for p in POWER_CHOICES.get(level, ()) if p not in self.powers]
@@ -250,6 +315,9 @@ class Game:
         if level == len(LEVELS):
             data["completed"] = True
             self.state = "victory"
+        elif self.config.get("category") == "ELITE" and [r for r in RELICS if r not in data["relics"]]:
+            self.relic_choices = [r for r in RELICS if r not in data["relics"]][:3]
+            self.state = "relic"
         else:
             self.state = "powerup" if self.power_choices else "cleared"
         self.selection = 0
@@ -267,7 +335,15 @@ class Game:
         if (self.level_index + 1) % 5 == 0 and self.level_index + 1 == data["checkpoint"]:
             data["checkpoint_powers"] = sorted(self.powers)
         self.store.flush()
-        self.load_level(self.level_index + 1)
+        self.continue_to_level(self.level_index + 1)
+
+    def choose_relic(self, relic):
+        if self.state != "relic" or relic not in self.relic_choices:
+            return
+        if relic not in self.store.data["relics"]:
+            self.store.data["relics"].append(relic)
+        self.store.flush()
+        self.continue_to_level(self.level_index + 1)
 
     def update(self, dt, movement=0):
         if self.state != "play":
@@ -729,6 +805,7 @@ class Game:
             self.rally += 1
             self.return_count += 1
             self.stats["returns"] += 1
+            self.unlock("FIRST RETURN")
             self.stats["longest_rally"] = max(self.stats["longest_rally"], self.rally)
             ball.returned = True
             ball.charged = "SHOCK" in self.powers and self.return_count % 3 == 0
@@ -840,7 +917,9 @@ class Game:
 
     def menu_items(self):
         if self.state == "menu":
-            return ["PLAY", "CONTINUE", "STATS", "OPTIONS", "QUIT"]
+            return ["PLAY", "CONTINUE", "STATS", "OPTIONS", "DUNGEON MAP", "CODEX", "DAILY CHALLENGE", "QUIT"]
+        if self.state in ("map", "codex", "story"):
+            return [] if self.state == "story" else ["BACK"]
         if self.state == "continue":
             highest = max(1, min(len(LEVELS), self.store.data.get("highest_level", 1)))
             items = []
@@ -857,6 +936,8 @@ class Game:
             return ["NEXT LEVEL", "MENU"]
         if self.state == "powerup":
             return self.power_choices
+        if self.state == "relic":
+            return self.relic_choices
         if self.state == "stats":
             return ["BACK"]
         if self.state == "options":
@@ -864,6 +945,14 @@ class Game:
             return [f"EFFECTS: {'ON' if data['settings']['effects'] else 'OFF'}",
                     f"HIGH CONTRAST: {'ON' if data['settings']['high_contrast'] else 'OFF'}",
                     f"SOUND: {'ON' if data['settings'].get('sound', True) else 'OFF'}",
+                    f"PRESENTATION: {data['settings']['presentation']}",
+                    f"REDUCED FLASH: {'ON' if data['settings']['reduced_flash'] else 'OFF'}",
+                    f"ASSIST: {data['settings']['assist']}",
+                    f"MUSIC: {data['settings']['music_volume'] * 10}%",
+                    f"SFX: {data['settings']['sfx_volume'] * 10}%",
+                    f"INTENSITY: {data['settings']['intensity'] * 10}%",
+                    f"SCREEN SHAKE: {data['settings']['screen_shake'] * 10}%",
+                    f"UI SCALE: {data['settings']['ui_scale'] * 10}%",
                     f"PADDLE: {data['selected_cosmetic']}", "BACK"]
 
         return []
@@ -875,8 +964,10 @@ class Game:
         action = items[self.selection % len(items)]
         if self.state == "powerup":
             self.choose_power(action)
+        elif self.state == "relic":
+            self.choose_relic(action)
         elif action == "PLAY":
-            self.start()
+            self.begin_campaign()
         elif action == "CONTINUE":
             self.state = "continue"
             highest = max(1, self.store.data.get("highest_level", 1))
@@ -889,7 +980,7 @@ class Game:
         elif action == "RESTART CHECKPOINT":
             self.start("checkpoint")
         elif action == "NEXT LEVEL":
-            self.load_level(self.level_index + 1)
+            self.continue_to_level(self.level_index + 1)
         elif action == "RESUME":
             self.state = "play"
         elif action in ("MENU", "BACK"):
@@ -902,6 +993,12 @@ class Game:
         elif action in ("STATS", "OPTIONS"):
             self.state = action.lower()
             self.selection = 0
+        elif action == "DUNGEON MAP":
+            self.state, self.selection = "map", 0
+        elif action == "CODEX":
+            self.state, self.selection = "codex", 0
+        elif action == "DAILY CHALLENGE":
+            self.start_daily()
         elif action.startswith("EFFECTS"):
             self.store.data["settings"]["effects"] = not self.store.data["settings"]["effects"]
             self.store.flush()
@@ -912,7 +1009,31 @@ class Game:
             current = self.store.data["settings"].get("sound", True)
             self.store.data["settings"]["sound"] = not current
             if self.audio:
-                self.audio.enabled = not current
+                self.audio.set_enabled(not current)
+            self.store.flush()
+        elif action.startswith("PRESENTATION"):
+            settings = self.store.data["settings"]
+            settings["presentation"] = "CLASSIC" if settings["presentation"] == "CATHEDRAL" else "CATHEDRAL"
+            self.store.flush()
+        elif action.startswith("REDUCED FLASH"):
+            settings = self.store.data["settings"]
+            settings["reduced_flash"] = not settings["reduced_flash"]
+            self.store.flush()
+        elif action.startswith("ASSIST"):
+            settings = self.store.data["settings"]
+            choices = ("STANDARD", "GENTLE", "STORY")
+            settings["assist"] = choices[(choices.index(settings["assist"]) + 1) % len(choices)]
+            self.store.flush()
+        elif any(action.startswith(prefix) for prefix in ("MUSIC", "SFX", "INTENSITY", "SCREEN SHAKE", "UI SCALE")):
+            key = next(k for prefix, k in (("MUSIC", "music_volume"), ("SFX", "sfx_volume"),
+                       ("INTENSITY", "intensity"), ("SCREEN SHAKE", "screen_shake"), ("UI SCALE", "ui_scale"))
+                       if action.startswith(prefix))
+            settings = self.store.data["settings"]
+            settings[key] = (settings[key] + 1) % 11
+            if self.audio and key == "music_volume":
+                self.audio.set_music_volume(settings[key] / 35)
+            elif self.audio and key == "sfx_volume":
+                self.audio.set_sfx_volume(settings[key] / 10)
             self.store.flush()
         elif action.startswith("PADDLE"):
             data = self.store.data
@@ -930,6 +1051,27 @@ class Game:
         if event.type == pygame.MOUSEBUTTONDOWN and self.state == "play":
             if event.button == 3:  # Right-click triggers Chrono
                 self.use_chrono()
+        if event.type == pygame.JOYBUTTONDOWN:
+            if self.state == "play" and event.button == 0:
+                self.use_ability()
+            elif self.state == "play" and event.button == 1:
+                self.use_chrono()
+            elif event.button in (7, 9):
+                if self.state == "play":
+                    self.state, self.selection = "pause", 0
+                elif self.state == "pause":
+                    self.state = "play"
+            elif self.state != "play" and event.button == 0:
+                if self.state == "story":
+                    self.advance_story()
+                else:
+                    self.activate()
+            return
+        if event.type == pygame.JOYHATMOTION and self.state != "play":
+            items = self.menu_items()
+            if items and event.value[1]:
+                self.selection = (self.selection - event.value[1]) % len(items)
+            return
         if event.type != pygame.KEYDOWN:
             return
         if event.key == pygame.K_ESCAPE:
@@ -938,8 +1080,12 @@ class Game:
                 self.store.flush()
             elif self.state == "pause":
                 self.state = "play"
-            elif self.state in ("stats", "options", "continue"):
+            elif self.state in ("stats", "options", "continue", "map", "codex", "story"):
                 self.state, self.selection = "menu", 0
+            return
+        if self.state == "story":
+            if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                self.advance_story()
             return
         if self.state == "play":
             if event.key == pygame.K_SPACE:
@@ -967,4 +1113,3 @@ class Game:
                     self.selection = (self.selection + 1) % len(items)
             elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 self.activate()
-

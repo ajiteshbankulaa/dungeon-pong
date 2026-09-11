@@ -46,6 +46,8 @@ def main():
     # Create audio engine; respect the saved sound toggle.
     sound_enabled = game.store.data["settings"].get("sound", True)
     game.audio = Audio(enabled=sound_enabled)
+    game.audio.set_sfx_volume(game.store.data["settings"].get("sfx_volume", 8) / 10)
+    game.audio.start_music(game.store.data["settings"].get("music_volume", 7) / 35)
     clock = pygame.time.Clock()
     try:
         while game.state != "quit":
@@ -57,6 +59,11 @@ def main():
                 game.handle_event(event)
             keys = pygame.key.get_pressed()
             movement = int(keys[pygame.K_s] or keys[pygame.K_DOWN]) - int(keys[pygame.K_w] or keys[pygame.K_UP])
+            if pygame.joystick.get_count():
+                pad = pygame.joystick.Joystick(0)
+                axis = pad.get_axis(1)
+                if abs(axis) > .18:
+                    movement = axis
             game.update(dt, movement)
             view.draw(game)
             pygame.display.flip()
@@ -67,4 +74,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

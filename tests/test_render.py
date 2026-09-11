@@ -108,7 +108,7 @@ class RenderTests(unittest.TestCase):
             view = View(self.surface)
             view.draw(game)
             view.handle_mouse(game, pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=view.buttons[0].center))
-            self.assertEqual(game.state, "play")
+            self.assertEqual(game.state, "story")
 
     def test_hunter_aim_renders(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -27,7 +27,7 @@ class SaveTests(unittest.TestCase):
 
     def test_missing_creates_valid_save(self):
         store = SaveStore(self.path)
-        self.assertEqual(json.loads(self.path.read_text())["version"], 1)
+        self.assertEqual(json.loads(self.path.read_text())["version"], 2)
         self.assertEqual(store.data["highest_level"], 1)
 
     def test_corrupted_and_non_object_recover(self):
@@ -137,6 +137,9 @@ class GameTests(unittest.TestCase):
         g.clear_level()
         self.assertEqual(g.state, "cleared")
         g.activate()
+        self.assertEqual(g.state, "story")
+        while g.state == "story":
+            g.advance_story()
         self.assertEqual(g.level_index, 10)
 
     def test_damage_recovery_game_over_and_restart(self):
@@ -319,7 +322,7 @@ class GameTests(unittest.TestCase):
             ball = Ball(x=paddle.x - 10, y=paddle.y, vx=430, vy=0, delay=0, returned=True)
             g.balls = [ball]
             g.update_ball(ball, .01)
-        self.assertEqual(g.state, "cleared")
+        self.assertEqual(g.state, "relic")
         self.assertFalse(g.enemies)
 
     def test_survival_completes_without_enemy_hp(self):
@@ -729,4 +732,3 @@ class GameTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
