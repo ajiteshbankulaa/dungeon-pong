@@ -9,6 +9,7 @@ import pygame
 from game import Game
 from ui import View
 from entities import Projectile
+from levels import LEVELS
 from settings import *
 
 
@@ -29,7 +30,7 @@ class RenderTests(unittest.TestCase):
             game = Game(Path(directory) / "save.json", seed=2)
             view = View(self.surface)
             thumbnails = []
-            for level in range(20):
+            for level in range(len(LEVELS)):
                 game.load_level(level)
                 game.intro = 0
                 view.draw(game)
@@ -43,9 +44,9 @@ class RenderTests(unittest.TestCase):
                         game.encounter.update(game, .02)
                         view.draw(game)
                         pygame.image.save(self.surface, output / f"boss-{level+1}-phase-{game.encounter.phase}.png")
-            sheet = pygame.Surface((330 * 4, 204 * 5))
+            sheet = pygame.Surface((330 * 5, 204 * 5))
             for i, thumb in enumerate(thumbnails):
-                sheet.blit(thumb, ((i % 4) * 330, (i // 4) * 204))
+                sheet.blit(thumb, ((i % 5) * 330, (i // 5) * 204))
             pygame.image.save(sheet, output / "encounters.png")
             game.load_level(14)
             game.intro = 0
@@ -64,7 +65,7 @@ class RenderTests(unittest.TestCase):
             for style in ("SOLID", "OUTLINE", "NOTCHED"):
                 game.store.data["selected_cosmetic"] = style
                 view.draw(game)
-            for state in ("menu", "pause", "defeat", "victory", "stats", "options", "cleared", "powerup"):
+            for state in ("menu", "pause", "defeat", "victory", "stats", "options", "continue", "cleared", "powerup"):
                 game.state = state
                 game.power_choices = ["BLINK", "REFLECT"]
                 view.draw(game)
@@ -108,3 +109,13 @@ class RenderTests(unittest.TestCase):
             view.draw(game)
             view.handle_mouse(game, pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=view.buttons[0].center))
             self.assertEqual(game.state, "play")
+
+    def test_hunter_aim_renders(self):
+        with tempfile.TemporaryDirectory() as directory:
+            game = Game(Path(directory) / "save.json")
+            view = View(self.surface)
+            game.load_level(11)  # THE HUNTER is Level 12 (index 11)
+            game.intro = 0
+            game.encounter.arrow_charge = 0.5
+            game.encounter.arrow_target = 300
+            view.draw(game)

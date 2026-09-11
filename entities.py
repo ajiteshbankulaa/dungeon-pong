@@ -40,6 +40,16 @@ class Ball:
     hidden: float = 0.0
     hidden_total: float = 0.0
     trail: list = field(default_factory=list)
+    # Phantom decoys created by the Wraith: the AI ignores them and they
+    # dissolve on player-paddle contact or when they cross the goal line.
+    decoy: bool = False
+    decoy_life: float = 0.0   # seconds remaining before auto-dissolve
+    fireball: bool = False    # INFERNO power: double damage, vaporizes projectiles, smashes obstacles
+    fireball_timer: float = 0.0
+    stasis_timer: float = 0.0 # Dream Eater & Nirvana stasis suspension
+    stasis_vx: float = 0.0
+    stasis_vy: float = 0.0
+    yin_yang: int = 0         # Nirvana: 1 = Yin (Light/Cyan), -1 = Yang (Dark/Gold)
 
     def cap(self):
         # Gravity and repeated banks must not leave a near-vertical, endless rally.
@@ -69,6 +79,16 @@ class Projectile:
     blockable: bool = False
     reflected: bool = False
     radius: int = 6
+    soul_ember: bool = False   # Necromancer slow-homing ember; rendered in violet
+    arrow: bool = False        # Standard skeleton/bone arrow (50% stun / 50% damage)
+    hunter_bolt: bool = False  # Rapid sniper bolt (guaranteed damage unless 50% reflected)
+    lightning: bool = False    # Zeus chain-lightning bolt
+    blood_orb: bool = False    # Vampire King life-leech blood orb
+    void_pulse: bool = False   # The Void gravitational pulse
+    stone_rubble: bool = False # The Mason's flying stone rubble
+    hellfire_skull: bool = False # Lord 666 demonic flaming skull
+    holy_feather: bool = False # The Angel radiant holy dagger
+    bubble: bool = False       # Leviathan deep sea tidal bubble
 
 
 @dataclass
@@ -76,7 +96,18 @@ class Obstacle:
     rect: pygame.Rect
     hp: int = 1
     moving: bool = False
-    warning: float = .8
+    warning: float = 0.0
+    # acid_timer > 0: temporary slime puddle (dissolves when timer reaches 0)
+    acid_timer: float = 0.0
+    one_sided: bool = False    # Mason's wall: enemies shoot through, players bounce
+    is_bone_spire: bool = False# Necromancer dynamic bone spire
+    is_warp_rift: bool = False # Gatekeeper / cosmic warp rift
+    is_tractor_beam: bool = False # The Alien mid-court saucer tractor beam
+    is_whirlpool: bool = False # Leviathan ocean whirlpool vortex
+    is_holy_beam: bool = False # The Angel vertical divine light pillar
+    is_mandala: bool = False   # Nirvana celestial stasis mandala
+    is_drone: bool = False     # The Alien orbiting defense drone
+
 
 
 def circle_rect(x, y, radius, rect):

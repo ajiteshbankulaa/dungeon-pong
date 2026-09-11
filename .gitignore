@@ -5,3 +5,9 @@ data/save.json
 data/save.json.*
 artifacts/
 .venv/
+build/
+.build/
+release/
+deliverables/
+scratch/
+test_save.json

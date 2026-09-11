@@ -5,14 +5,15 @@ import math
 import os
 from pathlib import Path
 
-POWERS = ("BLINK", "REFLECT", "SHOCK", "RICOCHET")
+POWERS = ("BLINK", "REFLECT", "SHOCK", "RICOCHET", "CHRONO", "AEGIS", "INFERNO", "TELEKINESIS")
 COSMETICS = ("SOLID", "OUTLINE", "NOTCHED")
+MAX_LEVELS = 25
 DEFAULT_PATH = Path(__file__).resolve().parent / "data" / "save.json"
 DEFAULT = {
     "version": 1, "highest_level": 1, "checkpoint": 0, "continue_level": 1,
     "completed": False, "pending_power_level": 0, "unlocked_powers": [], "equipped_powers": [],
     "checkpoint_powers": [], "unlocked_cosmetics": ["SOLID"],
-    "selected_cosmetic": "SOLID", "settings": {"effects": True, "high_contrast": False},
+    "selected_cosmetic": "SOLID", "settings": {"effects": True, "high_contrast": False, "sound": True},
     "stats": {key: 0 for key in (
         "wins", "losses", "returns", "damage_taken", "bosses_defeated",
         "enemies_defeated", "deaths", "longest_rally", "projectiles_dodged",
@@ -41,7 +42,7 @@ class SaveStore:
         self.flush()
 
     def _merge(self, raw):
-        for key, lo, hi in (("highest_level", 1, 20), ("continue_level", 1, 20), ("checkpoint", 0, 20)):
+        for key, lo, hi in (("highest_level", 1, MAX_LEVELS), ("continue_level", 1, MAX_LEVELS), ("checkpoint", 0, MAX_LEVELS)):
             value = raw.get(key, self.data[key])
             if type(value) is int:
                 self.data[key] = max(lo, min(hi, value))
@@ -49,10 +50,10 @@ class SaveStore:
         self.data["checkpoint"] = min(self.data["checkpoint"], self.data["highest_level"] // 5 * 5)
         self.data["continue_level"] = min(self.data["continue_level"], self.data["highest_level"])
         if "continue_level" not in raw:
-            self.data["continue_level"] = min(20, self.data["checkpoint"] + 1)
+            self.data["continue_level"] = min(MAX_LEVELS, self.data["checkpoint"] + 1)
         self.data["completed"] = raw.get("completed") is True
         pending = raw.get("pending_power_level", 0)
-        if type(pending) is int and pending in (2, 5, 10, 15) and self.data["continue_level"] == pending + 1:
+        if type(pending) is int and pending in (2, 5, 10, 15, 20) and self.data["continue_level"] == pending + 1:
             self.data["pending_power_level"] = pending
         for key, allowed in (("unlocked_powers", POWERS), ("equipped_powers", POWERS),
                              ("checkpoint_powers", POWERS), ("unlocked_cosmetics", COSMETICS)):
@@ -69,6 +70,7 @@ class SaveStore:
             for key in self.data["settings"]:
                 if type(settings.get(key)) is bool:
                     self.data["settings"][key] = settings[key]
+
         stats = raw.get("stats", {})
         if isinstance(stats, dict):
             for key in self.data["stats"]:

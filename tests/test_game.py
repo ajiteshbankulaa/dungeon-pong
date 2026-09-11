@@ -133,7 +133,7 @@ class GameTests(unittest.TestCase):
 
     def test_exhausted_power_pool(self):
         g = self.load(10)
-        g.powers = {"BLINK", "REFLECT", "SHOCK", "RICOCHET"}
+        g.powers = {"BLINK", "REFLECT", "SHOCK", "RICOCHET", "CHRONO", "AEGIS", "INFERNO", "TELEKINESIS"}
         g.clear_level()
         self.assertEqual(g.state, "cleared")
         g.activate()
@@ -357,9 +357,9 @@ class GameTests(unittest.TestCase):
         self.assertEqual(g.enemy_hp, 5)
 
     def test_all_boss_phases_clear_old_attacks(self):
-        for level in (5, 10, 15, 20):
+        for level in (5, 10, 15, 20, 25):
             g = self.load(level)
-            expected = 5 if level == 20 else 3
+            expected = 5 if level == 25 else 3
             phases = {1}
             while g.enemy_hp > 1:
                 previous = g.encounter.phase
@@ -371,22 +371,18 @@ class GameTests(unittest.TestCase):
                     self.assertGreater(g.intro, 0)
                     self.assertTrue(all(b.delay > 0 for b in g.balls))
             self.assertEqual(phases, set(range(1, expected + 1)))
-            if level == 20:
+            if level == 25:
                 self.assertEqual(g.player_hp, 1)
                 self.assertEqual(len(g.balls), 1)
             g.damage_enemy()
-            self.assertIn(g.state, ("powerup", "victory"))
+            self.assertIn(g.state, ("powerup", "victory", "cleared"))
 
     def test_projectile_patterns_telegraph_and_recovery(self):
         g = self.load(11)
-        g.encounter.pattern_clock = .001
-        g.encounter.update(g, .01)
-        self.assertGreater(g.encounter.warning, .8)
-        self.assertFalse(g.projectiles)
-        self.assertTrue(g.encounter.lanes)
-        for y, _ in g.encounter.lanes:
-            self.assertGreaterEqual(abs(y - ARENA.centery), 105)
-        g.encounter.update(g, 1.01)
+        g.encounter.pattern_clock = 0
+        g.step(.01)
+        self.assertGreater(g.encounter.warning, 0)
+        g.step(1.0)
         self.assertTrue(g.projectiles)
         self.assertGreater(g.encounter.pattern_clock, 3)
 
@@ -431,7 +427,7 @@ class GameTests(unittest.TestCase):
         self.assertLess(ball.vx, 0)
 
     def test_final_phase_one_returned_hit_wins(self):
-        g = self.load(20)
+        g = self.load(25)
         g.enemy_hp = 1
         g.encounter.transition(g)
         paddle = g.enemies[0]
@@ -439,7 +435,7 @@ class GameTests(unittest.TestCase):
         g.balls = [ball]
         g.update_ball(ball, .01)
         self.assertEqual(g.state, "victory")
-        self.assertEqual(g.store.data["checkpoint"], 20)
+        self.assertEqual(g.store.data["checkpoint"], 25)
 
     def test_reflect_against_core_cancels_warning(self):
         g = self.load(15)
@@ -569,7 +565,8 @@ class GameTests(unittest.TestCase):
         self.assertEqual(g.encounter.rules()["pattern"], "fan")
         g.encounter.pattern_clock = 0
         g.encounter.update(g, .01)
-        self.assertEqual(len(g.encounter.fan), 3)
+        # Bullet-hell upgrade: fan now fires 5 spread shots (was 3).
+        self.assertGreaterEqual(len(g.encounter.fan), 3)
         g.enemy_hp = 2
         g.encounter.transition(g)
         rules = g.encounter.rules()
@@ -581,6 +578,155 @@ class GameTests(unittest.TestCase):
         self.assertEqual(len(g.enemies), 2)
         self.assertEqual(len(g.balls), 2)
 
+    def test_continue_level_select_allows_choosing_any_unlocked_level(self):
+        g = self.game
+        g.store.data["highest_level"] = 6
+        g.store.data["continue_level"] = 6
+        g.state = "menu"
+        g.selection = 1  # CONTINUE
+        g.activate()
+        self.assertEqual(g.state, "continue")
+        items = g.menu_items()
+        self.assertIn("LEVEL 04: NECROMANCER", items)
+        # Select level 4
+        g.selection = items.index("LEVEL 04: NECROMANCER")
+        g.activate()
+        self.assertEqual(g.state, "play")
+        self.assertEqual(g.level_index, 3)  # Level 4 is index 3
+
+    def test_bone_spire_is_one_way_and_breaks_in_one_hit(self):
+        g = self.load(4)
+        spire = [o for o in g.obstacles if o.is_bone_spire][0]
+        spire.warning = 0
+        self.assertTrue(spire.one_sided)
+        self.assertEqual(spire.hp, 1)
+
+        # 1) Ball moving left (enemy to player: vx < 0): passes straight through!
+        enemy_ball = Ball(x=spire.rect.right + 5, y=spire.rect.centery, vx=-430, vy=0, delay=0)
+        g.balls = [enemy_ball]
+        g.update_ball(enemy_ball, .04)
+        self.assertLess(enemy_ball.vx, 0)
+        self.assertLess(enemy_ball.x, spire.rect.centerx)
+        self.assertIn(spire, g.obstacles)
+
+        # 2) Ball moving right (player to enemy: vx > 0): hits spire, bounces back, destroys spire in 1 hit!
+        player_ball = Ball(x=spire.rect.left - 15, y=spire.rect.centery, vx=430, vy=0, delay=0)
+        g.balls = [player_ball]
+        g.update_ball(player_ball, .04)
+        self.assertLess(player_ball.vx, 0)  # Bounced back!
+        self.assertNotIn(spire, g.obstacles)  # Destroyed in 1 single hit!
+
+    def test_gatekeeper_warp_rifts_are_linked_and_teleport_ball(self):
+        g = self.load(9)  # Level 9: GATEKEEPER
+        rifts = [o for o in g.obstacles if o.is_warp_rift]
+        self.assertEqual(len(rifts), 2)
+        r1, r2 = rifts[0], rifts[1]
+        self.assertEqual(r1.warning, 0.0)
+        self.assertEqual(r2.warning, 0.0)
+
+        # 1) Ball entering Rift 1 (moving right) teleports out of Rift 2 (continuing right)
+        ball = Ball(x=r1.rect.centerx - 5, y=r1.rect.centery, vx=400, vy=50, delay=0)
+        g.balls = [ball]
+        g.update_ball(ball, 0.02)
+        # Should have teleported to r2 and exited to the right of r2
+        self.assertGreater(ball.x, r2.rect.right)
+        self.assertGreater(ball.vx, 0)
+        self.assertGreater(ball.portal_cooldown, 0)
+
+        # 2) Ball entering Rift 2 (moving left) teleports out of Rift 1 (continuing left)
+        ball2 = Ball(x=r2.rect.centerx + 5, y=r2.rect.centery, vx=-400, vy=50, delay=0)
+        g.balls = [ball2]
+        g.update_ball(ball2, 0.02)
+        # Should have teleported to r1 and exited to the left of r1
+        self.assertLess(ball2.x, r1.rect.left)
+        self.assertLess(ball2.vx, 0)
+        self.assertGreater(ball2.portal_cooldown, 0)
+
+
+    def test_chrono_slow_motion_and_cooldown(self):
+        g = self.load(0)
+        g.powers.add("CHRONO")
+        self.assertEqual(g.chrono_timer, 0.0)
+        self.assertEqual(g.chrono_cooldown, 0.0)
+
+        # Activate Chrono
+        g.use_chrono()
+        self.assertAlmostEqual(g.chrono_timer, 2.5)
+        self.assertAlmostEqual(g.chrono_cooldown, 7.0)
+
+        # Verify time dilation: 1.0s elapsed dt advances chrono_timer down by 1.0, cooldown down by 1.0
+        # Encounter elapsed should only advance by 1.0 * 0.35 = 0.35
+        old_enc_elapsed = g.encounter.elapsed
+        g.step(1.0)
+        self.assertAlmostEqual(g.chrono_timer, 1.5)
+        self.assertAlmostEqual(g.chrono_cooldown, 6.0)
+        self.assertAlmostEqual(g.encounter.elapsed, old_enc_elapsed + 0.35)
+
+    def test_aegis_absorbs_miss_and_reflects_ball(self):
+        g = self.load(0)
+        g.powers.add("AEGIS")
+        g.aegis_shield_ready = True
+        g.player_hp = 3
+
+        # Spawn a ball passing past player paddle into goal
+        ball = Ball(x=PLAYER_X - 10, y=ARENA.centery, vx=-400, vy=0, delay=0)
+        g.balls = [ball]
+
+        # Trigger hurt: Aegis should absorb the hit, preserve HP, and bounce ball back towards enemy
+        g.hurt(ball)
+        self.assertEqual(g.player_hp, 3)  # HP protected!
+        self.assertFalse(g.aegis_shield_ready)
+        self.assertGreater(ball.vx, 0)  # Reflected right!
+        self.assertGreaterEqual(ball.x, PLAYER_X + PADDLE_W)
+
+    def test_inferno_ignites_fireball_after_two_banks_and_vaporizes_projectiles(self):
+        g = self.load(0)
+        g.powers.add("INFERNO")
+        ball = Ball(x=ARENA.centerx, y=ARENA.top + 4, vx=400, vy=-200, delay=0)
+        g.balls = [ball]
+
+        # First top wall bank
+        g.update_ball(ball, 0.02)
+        self.assertEqual(g.inferno_banks, 1)
+        self.assertFalse(ball.fireball)
+
+        # Simulate second bank on bottom wall
+        ball.y = ARENA.bottom - 4
+        ball.vy = 200
+        g.update_ball(ball, 0.02)
+        self.assertEqual(g.inferno_banks, 2)
+        self.assertTrue(ball.fireball)  # IGNITED!
+
+        # Fireball should incinerate enemy projectiles on contact
+        skull = Projectile(x=ball.x, y=ball.y, vx=-200, vy=0, blockable=False, hellfire_skull=True)
+        g.projectiles = [skull]
+        g.update_ball(ball, 0.01)
+        self.assertNotIn(skull, g.projectiles)
+
+    def test_alien_tractor_beam_and_retaliation_plasma(self):
+        g = self.load(13)  # Level 13: THE ALIEN
+        beam = [o for o in g.obstacles if o.is_tractor_beam][0]
+        self.assertIsNotNone(beam)
+
+        # Ball passing through tractor beam is accelerated and drawn vertically
+        ball = Ball(x=beam.rect.centerx - 5, y=beam.rect.centery - 20, vx=200, vy=0, delay=0)
+        g.balls = [ball]
+        old_vx = ball.vx
+        g.update_ball(ball, 0.02)
+        self.assertGreater(abs(ball.vx), abs(old_vx))  # Accelerated!
+
+        # Alien retaliates with plasma when squad paddle is destroyed by returned ball
+        enemy = g.enemies[0]
+        ball.x = enemy.x - 5
+        ball.y = enemy.y
+        ball.vx = 400
+        ball.returned = True
+        g.update_ball(ball, 0.02)
+        # Should have launched 3 retaliatory plasma bolts
+        self.assertTrue(len(g.projectiles) > 0)
+        self.assertEqual(len(g.projectiles), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
+

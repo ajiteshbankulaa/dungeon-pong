@@ -14,6 +14,7 @@ def main():
         os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
         os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
     import pygame
+    from audio import Audio
     from game import Game
     from ui import View
     from settings import WIDTH, HEIGHT
@@ -24,11 +25,13 @@ def main():
     if args.smoke:
         with tempfile.TemporaryDirectory() as directory:
             game = Game(Path(directory) / "save.json", seed=7)
+            # No audio in smoke mode (SDL_AUDIODRIVER=dummy).
             if args.screenshots:
                 args.screenshots.mkdir(parents=True, exist_ok=True)
                 view.draw(game)
                 pygame.image.save(screen, args.screenshots / "menu.png")
-            for level in range(20):
+            from levels import LEVELS
+            for level in range(len(LEVELS)):
                 game.load_level(level)
                 game.intro = 0
                 for _ in range(180):
@@ -36,10 +39,13 @@ def main():
                 view.draw(game)
                 if args.screenshots:
                     pygame.image.save(screen, args.screenshots / f"level-{level + 1:02d}.png")
-            print("Smoke: all 20 encounters simulated and rendered.")
+            print(f"Smoke: all {len(LEVELS)} encounters simulated and rendered.")
         pygame.quit()
         return
     game = Game()
+    # Create audio engine; respect the saved sound toggle.
+    sound_enabled = game.store.data["settings"].get("sound", True)
+    game.audio = Audio(enabled=sound_enabled)
     clock = pygame.time.Clock()
     try:
         while game.state != "quit":
@@ -61,3 +67,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

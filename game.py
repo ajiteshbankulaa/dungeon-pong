@@ -7,8 +7,11 @@ from encounters import Encounter
 from levels import LEVELS, POWER_CHOICES
 from save import SaveStore
 from settings import (ARENA, PLAYER_X, ENEMY_X, PLAYER_SPEED, PADDLE_W,
-                      BALL_RADIUS, BALL_START_SPEED, WHITE, CYAN, RED, GRAY,
+                      BALL_RADIUS, BALL_START_SPEED, BALL_MAX_SPEED, WHITE, CYAN, RED, GRAY,
                       GOLD, VIOLET, clamp, predict_y)
+# Audio is optional – created by main.py and injected via game.audio.
+# When None (headless / tests), all audio calls are simply skipped.
+
 
 
 class Game:
@@ -41,6 +44,14 @@ class Game:
         self.rally = self.enemy_returns = 0
         self.level_damage = 0
         self.return_count = 0
+        self.chrono_timer = 0.0
+        self.chrono_cooldown = 0.0
+        self.aegis_shield_ready = True
+        self.aegis_timer = 0.0
+        self.inferno_banks = 0
+        # Injected by main.py; None in tests / headless mode (all calls no-op).
+        self.audio = None
+
 
     @property
     def config(self):
@@ -54,13 +65,17 @@ class Game:
     def stats(self):
         return self.store.data["stats"]
 
-    def start(self, mode="new"):
+    def start(self, mode="new", chosen_level=None):
         data = self.store.data
-        if mode == "continue":
-            level = data["continue_level"]
+        max_lvl = len(LEVELS)
+        if chosen_level is not None:
+            level = max(1, min(max_lvl, chosen_level))
+            self.powers = set(data["equipped_powers"]) | {"BLINK"}
+        elif mode == "continue":
+            level = max(1, min(max_lvl, data["continue_level"]))
             self.powers = set(data["equipped_powers"]) | {"BLINK"}
         elif mode == "checkpoint":
-            level = min(20, data["checkpoint"] + 1)
+            level = min(max_lvl, data["checkpoint"] + 1)
             self.powers = set(data["checkpoint_powers"]) | {"BLINK"}
         else:
             level = 1
@@ -71,6 +86,7 @@ class Game:
             self.load_level(pending - 1)
             self.power_choices = [p for p in POWER_CHOICES[pending] if p not in self.powers]
             self.state = "powerup" if self.power_choices else "cleared"
+
 
     def load_level(self, index):
         self.level_index = max(0, min(len(LEVELS) - 1, index))
@@ -120,7 +136,9 @@ class Game:
     def use_ability(self):
         if self.state != "play" or "BLINK" not in self.powers or self.cooldown > 0 or self.intro > 0:
             return
-        incoming = [b for b in self.balls if b.vx * self.direction < 0 and b.delay <= 0]
+        # Blink ignores phantom decoy balls – only intercept real incoming balls.
+        incoming = [b for b in self.balls
+                    if b.vx * self.direction < 0 and b.delay <= 0 and not b.decoy]
         target = min(incoming, key=lambda b: abs(b.x - self.player.x), default=None)
         if target is None:
             self.callout("BLINK NEEDS AN INCOMING BALL", GRAY)
@@ -134,9 +152,37 @@ class Game:
         self.callout("BLINK", CYAN)
         self.impact(self.player.x, old_y, CYAN)
         self.impact(self.player.x, self.player.y, CYAN)
+        if self.audio:
+            self.audio.paddle_hit()
+
+    def use_chrono(self):
+        if self.state != "play" or "CHRONO" not in self.powers or self.chrono_cooldown > 0 or self.intro > 0:
+            return
+        self.chrono_timer = 2.5
+        self.chrono_cooldown = 7.0
+        self.stats["abilities_used"] += 1
+        self.callout("CHRONO WARP!", CYAN, 1.0)
+        self.impact(self.player.x, self.player.y, CYAN)
+        if self.audio:
+            self.audio.phantom_phase()
 
     def hurt(self, rally_miss=False):
         if self.state != "play":
+            return
+        if "AEGIS" in self.powers and self.aegis_shield_ready:
+            self.aegis_shield_ready = False
+            self.aegis_timer = 18.0
+            self.invulnerability = 1.2
+            self.callout("AEGIS BARRIER ABSORB!", GOLD, 1.2)
+            self.impact(self.player.x, self.player.y, GOLD)
+            if self.audio:
+                self.audio.bullet_reflect()
+            if rally_miss:
+                for b in self.balls:
+                    if (b.x < self.player.x if self.direction == 1 else b.x > self.player.x):
+                        b.vx = abs(b.vx) * self.direction
+                        b.x = self.player.x + (PADDLE_W + BALL_RADIUS + 10) * self.direction
+                        b.portal_cooldown = 0.2
             return
         if self.invulnerability <= 0:
             self.player_hp -= 1
@@ -144,12 +190,14 @@ class Game:
             self.stats["damage_taken"] += 1
             self.invulnerability = 1.5
             self.impact(self.player.x, self.player.y, RED)
+            if self.audio:
+                self.audio.player_hurt()
             if self.player_hp <= 0:
                 self.state = "defeat"
                 self.selection = 0
                 self.stats["deaths"] += 1
                 self.stats["losses"] += 1
-                self.store.data["continue_level"] = min(20, self.store.data["checkpoint"] + 1)
+                self.store.data["continue_level"] = min(len(LEVELS), self.store.data["checkpoint"] + 1)
                 self.store.data["equipped_powers"] = sorted(self.store.data["checkpoint_powers"])
                 self.store.data["pending_power_level"] = 0
                 self.store.flush()
@@ -160,6 +208,8 @@ class Game:
             self.encounter.lanes.clear()
             self.encounter.fan.clear()
             self.encounter.pattern_clock = 3.5
+            # Also remove any lingering decoy balls when the rally resets.
+            self.balls = [b for b in self.balls if not b.decoy]
             self.serve()
 
     def damage_enemy(self):
@@ -167,10 +217,13 @@ class Game:
             return
         self.enemy_hp -= 1
         self.impact(ENEMY_X if self.direction == 1 else PLAYER_X, self.bounds.centery)
+        if self.audio:
+            self.audio.enemy_hurt()
         if self.enemy_hp <= 0:
             self.clear_level()
         else:
             self.encounter.transition(self)
+
 
     def clear_level(self):
         if self.state != "play":
@@ -181,8 +234,8 @@ class Game:
         self.stats["enemies_defeated"] += self.config.get("paddles", 1)
         if self.level_damage == 0:
             self.stats["perfect_levels"] += 1
-        data["highest_level"] = max(data["highest_level"], min(20, level + 1))
-        data["continue_level"] = min(20, level + 1)
+        data["highest_level"] = max(data["highest_level"], min(len(LEVELS), level + 1))
+        data["continue_level"] = min(len(LEVELS), level + 1)
         data["equipped_powers"] = sorted(self.powers)
         if level % 5 == 0:
             self.stats["bosses_defeated"] += 1
@@ -194,7 +247,7 @@ class Game:
                 data["unlocked_cosmetics"].append(cosmetic)
         self.power_choices = [p for p in POWER_CHOICES.get(level, ()) if p not in self.powers]
         data["pending_power_level"] = level if self.power_choices else 0
-        if level == 20:
+        if level == len(LEVELS):
             data["completed"] = True
             self.state = "victory"
         else:
@@ -235,59 +288,122 @@ class Game:
         if self.hit_freeze > 0:
             self.hit_freeze -= dt
             return
-        self.player.move(self.move_input * PLAYER_SPEED * dt, self.bounds)
+        if self.player.stun > 0:
+            self.player.stun = max(0.0, self.player.stun - dt)
+        else:
+            self.player.move(self.move_input * PLAYER_SPEED * dt, self.bounds)
         if self.intro > 0:
             self.intro = max(0, self.intro - dt)
             return
+
         self.invulnerability = max(0, self.invulnerability - dt)
         self.cooldown = max(0, self.cooldown - dt)
-        self.encounter.update(self, dt)
+
+        # Chrono time dilation & cooldown
+        if self.chrono_cooldown > 0:
+            self.chrono_cooldown = max(0.0, self.chrono_cooldown - dt)
+        sim_dt = dt
+        if self.chrono_timer > 0:
+            self.chrono_timer = max(0.0, self.chrono_timer - dt)
+            sim_dt = dt * 0.35
+
+        # Aegis shield recharge
+        if not self.aegis_shield_ready:
+            self.aegis_timer = max(0.0, self.aegis_timer - dt)
+            if self.aegis_timer <= 0:
+                self.aegis_shield_ready = True
+                self.callout("AEGIS SHIELD READY", GOLD, 0.8)
+
+        self.encounter.update(self, sim_dt)
         if self.state != "play":
             return
-        self.update_ai(dt)
-        self.update_projectiles(dt)
+        self.update_ai(sim_dt)
+        self.update_projectiles(sim_dt)
         if self.state != "play":
             return
         current_balls = self.balls
         for ball in list(current_balls):
-            self.update_ball(ball, dt)
+            self.update_ball(ball, sim_dt)
             if self.state != "play" or self.balls is not current_balls:
                 break
 
     def update_ai(self, dt):
         if self.encounter.rules().get("objective") == "core":
             return
+        candidates = [b for b in self.balls
+                      if b.vx * self.direction > 0 and b.delay <= 0 and not b.decoy]
+        num_enemies = len(self.enemies)
+
         for index, paddle in enumerate(self.enemies):
             paddle.stun = max(0, paddle.stun - dt)
             paddle.reaction -= dt
             if paddle.stun > 0:
                 continue
             if paddle.reaction <= 0:
-                candidates = [b for b in self.balls if b.vx * self.direction > 0 and b.delay <= 0]
-                ball = min(candidates, key=lambda b: abs(b.x - paddle.x), default=None)
+                # Twins Coordinated Intercept:
+                if num_enemies == 2:
+                    if len(candidates) >= 2:
+                        # Dual balls: top twin tracks upper ball, bottom twin tracks lower ball!
+                        sorted_balls = sorted(candidates, key=lambda b: b.y)
+                        ball = sorted_balls[0] if index == 0 else sorted_balls[-1]
+                    elif len(candidates) == 1:
+                        ball = candidates[0]
+                        pred = self.predict_intercept(ball, paddle.x)
+                        # The twin whose natural territory contains the predicted intercept acts as primary;
+                        # the sibling covers the rebound zone!
+                        if (pred <= self.bounds.centery and index == 0) or (pred > self.bounds.centery and index == 1):
+                            target = pred
+                            paddle.target = target + self.rng.uniform(-self.config["error"] * 0.5, self.config["error"] * 0.5)
+                        else:
+                            # Cover wall bank rebound
+                            rebound_y = self.bounds.centery + (80 if index == 1 else -80)
+                            paddle.target = rebound_y
+                        paddle.reaction = self.rng.uniform(.32, .48)
+                        ball = None
+                    else:
+                        ball = None
+                else:
+                    ball = min(candidates, key=lambda b: abs(b.x - paddle.x), default=None)
+
                 if ball:
                     target = self.predict_intercept(ball, paddle.x)
                     paddle.target = target + self.rng.uniform(-self.config["error"], self.config["error"])
-                else:
+                elif num_enemies != 2 or not candidates:
                     paddle.target = self.bounds.centery
-                paddle.reaction = self.rng.uniform(.4, .62)
+                paddle.reaction = self.rng.uniform(.35, .55)
+
+            # Wraith: if a teleport is imminent, pre-position toward the destination
+            if (self.encounter.teleport_warning > 0
+                    and self.encounter.teleport_warning < 0.5
+                    and index == 0):
+                paddle.target = self.encounter.teleport_y
+
             distance = paddle.target - paddle.y
-            if self.config.get("paddles", 1) > 1:
-                # Keep independent paddles in distinct territories as members fall.
-                span = self.bounds.height / len(self.enemies)
+            if num_enemies == 2:
+                # Generous overlapping zones with zero dead center:
+                if index == 0:
+                    paddle.target = clamp(paddle.target, self.bounds.top + 30, self.bounds.centery + 70)
+                else:
+                    paddle.target = clamp(paddle.target, self.bounds.centery - 70, self.bounds.bottom - 30)
+                distance = paddle.target - paddle.y
+            elif num_enemies > 2:
+                span = self.bounds.height / num_enemies
                 paddle.target = clamp(paddle.target, self.bounds.top + index * span + 30,
                                       self.bounds.top + (index + 1) * span - 30)
                 distance = paddle.target - paddle.y
-            if abs(distance) > 10:
+
+            if abs(distance) > 8:
                 paddle.move(clamp(distance, -self.config["speed"] * dt, self.config["speed"] * dt), self.bounds)
 
     def predict_intercept(self, ball, target_x):
         """Follow current portals, gravity, and obstacles without removing AI error."""
         x, y, vx, vy = ball.x, ball.y, ball.vx, ball.vy
         rules = self.encounter.rules()
-        obstacles = [obstacle.rect.copy() for obstacle in self.obstacles]
+        obstacles = [(obstacle.rect.copy(), obstacle.one_sided, obstacle.is_warp_rift) for obstacle in self.obstacles]
         step = 1 / 120
+        sim_portal_cooldown = 0.0
         for _ in range(120 * 4):
+            sim_portal_cooldown = max(0.0, sim_portal_cooldown - step)
             old_x, old_y = x, y
             if rules.get("gravity"):
                 vy += 150 * step
@@ -301,8 +417,24 @@ class Game:
                 else:
                     y = clamp(y, self.bounds.top + BALL_RADIUS, self.bounds.bottom - BALL_RADIUS)
                     vy *= -1
-            for rect in obstacles:
+            for rect, one_sided, is_warp in obstacles:
                 if not circle_rect(x, y, BALL_RADIUS, rect):
+                    continue
+                if is_warp:
+                    if sim_portal_cooldown <= 0:
+                        other_rifts = [r for r, _, w in obstacles if w and r != rect]
+                        if other_rifts:
+                            other_rect = other_rifts[0]
+                            exit_dir = 1 if vx > 0 else -1
+                            x = other_rect.centerx + exit_dir * (other_rect.width / 2 + BALL_RADIUS + 10)
+                            entry_ratio = (y - rect.centery) / max(1, rect.height / 2)
+                            y = clamp(other_rect.centery + entry_ratio * (other_rect.height / 2),
+                                      self.bounds.top + BALL_RADIUS + 10, self.bounds.bottom - BALL_RADIUS - 10)
+                            vy = -vy * 1.05 if abs(vy) > 30 else (120 if y < self.bounds.centery else -120)
+                            sim_portal_cooldown = 0.45
+                    break
+                # One-sided wall: shots moving left (enemy to player) pass straight through!
+                if one_sided and vx * self.direction < 0:
                     continue
                 if old_x <= rect.left - BALL_RADIUS or old_x >= rect.right + BALL_RADIUS:
                     vx *= -1
@@ -315,6 +447,7 @@ class Game:
             if crossed:
                 return clamp(y, self.bounds.top + BALL_RADIUS, self.bounds.bottom - BALL_RADIUS)
         return self.bounds.centery
+
 
     def update_projectiles(self, dt):
         for projectile in list(self.projectiles):
@@ -332,22 +465,70 @@ class Game:
                 self.projectiles.remove(projectile)
                 continue
             if not projectile.reflected and circle_rect(projectile.x, projectile.y, projectile.radius, self.player.rect):
-                if "REFLECT" in self.powers:
+                can_reflect = "REFLECT" in self.powers and (self.rng.random() < 0.5)
+                if can_reflect:
                     projectile.reflected = True
-                    projectile.vx = self.direction * 480
+                    projectile.vx = self.direction * 520
                     projectile.x = self.player.x + PADDLE_W + 8 if self.direction == 1 else self.player.x - 8
                     self.stats["projectiles_reflected"] += 1
-                    self.callout("REFLECT", CYAN)
+                    self.callout("REFLECT!", CYAN)
                     self.impact(projectile.x, projectile.y, CYAN)
+                    if projectile.blockable or projectile.arrow:
+                        self.encounter.arrow_reflected(self)
+                    if self.audio:
+                        self.audio.laser_fire()
                     continue
-                if not projectile.blockable:
+
+                # Not reflected (failed 50% check or power not equipped):
+                if projectile.hunter_bolt:
+                    # Hunter sniper bolt: guaranteed 1 tick of damage!
+                    self.callout("SNIPED!", RED)
                     self.hurt()
+                    if self.audio:
+                        self.audio.player_hurt()
+                elif projectile.arrow:
+                    # Arrows: 50% chance stun, 50% chance 1 tick of damage
+                    if self.rng.random() < 0.5:
+                        self.player.stun = 0.85
+                        self.callout("ARROW STUN!", GOLD)
+                        self.impact(self.player.x, self.player.y, GOLD)
+                        if self.audio:
+                            self.audio.shock_stun()
+                    else:
+                        self.hurt()
+                        if self.audio:
+                            self.audio.player_hurt()
+                    self.encounter.arrow_reflected(self)
+                elif projectile.lightning:
+                    # Zeus lightning: damage + electric stun
+                    self.player.stun = 0.6
+                    self.callout("SHOCKED!", CYAN)
+                    self.hurt()
+                    if self.audio:
+                        self.audio.shock_stun()
+                elif projectile.blood_orb:
+                    # Vampire King: damage + life leech
+                    self.callout("LIFE DRAINED!", RED)
+                    self.hurt()
+                    if game_rules := self.encounter.rules():
+                        self.enemy_hp = min(game_rules.get("hp", 3), self.enemy_hp + 1)
+                    if self.audio:
+                        self.audio.player_hurt()
+                elif not projectile.blockable:
+                    self.hurt()
+                    if self.audio:
+                        self.audio.player_hurt()
                 else:
+                    # Generic blockable projectile: absorbed by paddle
                     self.impact(projectile.x, projectile.y, GOLD)
+                    self.encounter.arrow_reflected(self)
+
                 self.projectiles.remove(projectile)
                 if self.state != "play":
                     return
                 continue
+
+
             if projectile.reflected:
                 if self.encounter.rules().get("objective") == "core" and projectile.x >= ARENA.right - 20:
                     if self.encounter.core_open:
@@ -386,42 +567,164 @@ class Game:
         ball.hidden = max(0, ball.hidden - dt)
         rules = self.encounter.rules()
         old_x, old_y = ball.x, ball.y
+
+        # Stasis suspension (Dream Eater / Alien / Nirvana)
+        if ball.stasis_timer > 0:
+            ball.stasis_timer = max(0.0, ball.stasis_timer - dt)
+            if ball.stasis_timer <= 0:
+                ball.vx, ball.vy = ball.stasis_vx, ball.stasis_vy
+                ball.cap()
+                self.impact(ball.x, ball.y, VIOLET)
+                self.callout("STASIS SNAP!", VIOLET, 0.4)
+            else:
+                ball.x += self.rng.uniform(-0.8, 0.8)
+                ball.y += self.rng.uniform(-0.8, 0.8)
+                return
+
+        # Telekinesis: actively curve the ball's trajectory mid-air
+        if "TELEKINESIS" in self.powers and self.move_input != 0 and ball.vx * self.direction > 0:
+            ball.vy = clamp(ball.vy + self.move_input * 220 * dt, -BALL_MAX_SPEED, BALL_MAX_SPEED)
+
+        # Fireball duration & projectile vaporizing
+        if ball.fireball:
+            ball.fireball_timer = max(0.0, ball.fireball_timer - dt)
+            if ball.fireball_timer <= 0:
+                ball.fireball = False
+            else:
+                for p in list(self.projectiles):
+                    if not p.reflected and circle_rect(p.x, p.y, p.radius + 6, pygame.Rect(ball.x - 12, ball.y - 12, 24, 24)):
+                        self.impact(p.x, p.y, (255, 120, 20))
+                        self.projectiles.remove(p)
+
         if rules.get("gravity"):
             ball.vy += 150 * dt
         ball.cap()
         ball.x += ball.vx * dt
         ball.y += ball.vy * dt
+
+        # Phase-pending: ball fades at midcourt and optionally spawns wraith decoys.
         if ball.phase_pending and ball.vx * self.direction < 0:
-            crossed_center = old_x >= ARENA.centerx > ball.x if self.direction == 1 else old_x <= ARENA.centerx < ball.x
+            crossed_center = (old_x >= ARENA.centerx > ball.x if self.direction == 1
+                              else old_x <= ARENA.centerx < ball.x)
             if crossed_center:
                 ball.phase_pending = False
                 ball.hidden = ball.hidden_total = .62
                 self.callout("PHASE", VIOLET, .45)
                 self.impact(ball.x, ball.y, VIOLET)
+                if self.audio:
+                    self.audio.phantom_phase()
+                # Spawn wraith decoys only for real balls (not recursive on decoys).
+                if not ball.decoy:
+                    self.encounter.maybe_spawn_decoys(self, ball)
+
         ball.trail.append((ball.x, ball.y))
         ball.trail = ball.trail[-7:]
+
+        # Wall bounces
         if ball.y <= self.bounds.top + BALL_RADIUS:
             self.encounter.wall_bounce(self, ball, True)
+            if self.audio and not ball.decoy:
+                self.audio.wall_bounce()
         elif ball.y >= self.bounds.bottom - BALL_RADIUS:
             self.encounter.wall_bounce(self, ball, False)
+            if self.audio and not ball.decoy:
+                self.audio.wall_bounce()
 
+        # Obstacle collisions (acid puddles are indestructible; skip hp deduction)
         for obstacle in list(self.obstacles):
             if obstacle.warning > 0 or not circle_rect(ball.x, ball.y, BALL_RADIUS, obstacle.rect):
                 continue
+            # Gatekeeper Warp Rift teleport:
+            if obstacle.is_warp_rift:
+                if ball.portal_cooldown <= 0:
+                    other_rifts = [o for o in self.obstacles if o.is_warp_rift and o != obstacle]
+                    if other_rifts:
+                        other = other_rifts[0]
+                        exit_dir = 1 if ball.vx > 0 else -1
+                        ball.x = other.rect.centerx + exit_dir * (other.rect.width / 2 + BALL_RADIUS + 10)
+                        entry_ratio = (ball.y - obstacle.rect.centery) / max(1, obstacle.rect.height / 2)
+                        ball.y = clamp(other.rect.centery + entry_ratio * (other.rect.height / 2),
+                                       self.bounds.top + BALL_RADIUS + 10, self.bounds.bottom - BALL_RADIUS - 10)
+                        ball.vy = clamp(-ball.vy * 1.05 if abs(ball.vy) > 30 else (120 if ball.y < self.bounds.centery else -120),
+                                        -BALL_MAX_SPEED, BALL_MAX_SPEED)
+                        ball.portal_cooldown = 0.45
+                        ball.trail.clear()
+                        self.impact(obstacle.rect.centerx, obstacle.rect.centery, CYAN)
+                        self.impact(ball.x, ball.y, VIOLET)
+                        self.callout("WARP TRANSIT!", CYAN, 0.45)
+                        if self.audio:
+                            self.audio.phantom_phase()
+                continue
+
+            # Ethereal/energy fields pass-through without solid brick bounce:
+            if obstacle.is_tractor_beam or obstacle.is_whirlpool or obstacle.is_mandala:
+                continue
+
+            # Alien defense drone hit
+            if obstacle.is_drone:
+                if obstacle in self.obstacles:
+                    self.obstacles.remove(obstacle)
+                self.impact(obstacle.rect.centerx, obstacle.rect.centery, CYAN)
+                self.callout("DRONE DESTROYED!", CYAN, 0.5)
+                for vy_off in (-90, 90):
+                    self.projectiles.append(Projectile(obstacle.rect.centerx, obstacle.rect.centery, -self.direction * 350, vy=vy_off, blockable=False, radius=6))
+                if self.audio:
+                    self.audio.laser_fire()
+                ball.vx *= -1
+                continue
+
+            # One-sided wall (The Mason): enemy shots moving toward player pass straight through!
+            if obstacle.one_sided and ball.vx * self.direction < 0:
+                continue
+
             if old_x <= obstacle.rect.left - BALL_RADIUS or old_x >= obstacle.rect.right + BALL_RADIUS:
                 ball.vx *= -1
-                ball.x = obstacle.rect.left - BALL_RADIUS - .1 if old_x < obstacle.rect.centerx else obstacle.rect.right + BALL_RADIUS + .1
+                ball.x = (obstacle.rect.left - BALL_RADIUS - .1
+                          if old_x < obstacle.rect.centerx
+                          else obstacle.rect.right + BALL_RADIUS + .1)
             else:
                 ball.vy *= -1
-                ball.y = obstacle.rect.top - BALL_RADIUS - .1 if old_y < obstacle.rect.centery else obstacle.rect.bottom + BALL_RADIUS + .1
+                ball.y = (obstacle.rect.top - BALL_RADIUS - .1
+                          if old_y < obstacle.rect.centery
+                          else obstacle.rect.bottom + BALL_RADIUS + .1)
+
+            if obstacle.one_sided and not obstacle.is_bone_spire:
+                # The Mason's wall: impart a kinetic shock rebound!
+                ball.vx *= 1.15
+                ball.cap()
+                self.callout("MASON SLAM!", WHITE, 0.4)
+                if self.audio:
+                    self.audio.wall_bounce()
+            elif obstacle.is_bone_spire:
+                self.callout("BONE SHATTER!", VIOLET, 0.35)
+
+            # Indestructible obstacles (hp <= 0): just deflect, no hp change.
             if obstacle.hp > 0:
-                obstacle.hp -= 2 if ball.charged else 1
+                if ball.fireball:
+                    obstacle.hp = 0
+                    self.callout("INFERNO CRUSH!", (255, 120, 20), 0.45)
+                else:
+                    obstacle.hp -= 2 if ball.charged else 1
                 if obstacle.hp <= 0:
                     self.obstacles.remove(obstacle)
-            self.impact(ball.x, ball.y, CYAN if ball.charged else WHITE)
+                    self.encounter.obstacle_destroyed(self, obstacle)
+            self.impact(ball.x, ball.y, VIOLET if obstacle.is_bone_spire else (CYAN if ball.charged else WHITE))
             break
 
+
+        # Player paddle contact
         if ball.vx * self.direction < 0 and circle_rect(ball.x, ball.y, BALL_RADIUS, self.player.rect):
+            if ball.decoy:
+                # Decoy pops into shadow smoke, 0 damage, brief static glitch
+                self.impact(ball.x, ball.y, VIOLET)
+                self.callout("PHANTOM POP!", VIOLET, 0.4)
+                self.player.stun = 0.18
+                if ball in self.balls:
+                    self.balls.remove(ball)
+                if self.audio:
+                    self.audio.phantom_phase()
+                return
+
             ball.rebound(self.player, self.direction)
             self.rally += 1
             self.return_count += 1
@@ -430,11 +733,21 @@ class Game:
             ball.returned = True
             ball.charged = "SHOCK" in self.powers and self.return_count % 3 == 0
             ball.bank = "RICOCHET" in self.powers
+            if "INFERNO" in self.powers and ball.bank:
+                ball.fireball = True
+                ball.fireball_timer = 3.5
+                self.callout("INFERNO FIREBALL!", (255, 100, 20), 0.7)
+                if self.audio:
+                    self.audio.laser_fire()
             self.encounter.returned(self, ball, True)
             if ball.charged:
                 self.callout("SHOCK CHARGED", CYAN)
+                if self.audio:
+                    self.audio.shock_stun()
             self.impact(ball.x, ball.y, CYAN if ball.charged else WHITE)
             self.hit_freeze = .012 if self.store.data["settings"]["effects"] else 0
+            if self.audio:
+                self.audio.paddle_hit()
 
         objective = rules.get("objective")
         if ball.vx * self.direction > 0 and objective not in ("core", "survive"):
@@ -442,23 +755,38 @@ class Game:
                 if circle_rect(ball.x, ball.y, BALL_RADIUS, paddle.rect):
                     ball.rebound(paddle, -self.direction)
                     self.enemy_returns += 1
+                    if ball.fireball:
+                        self.callout("INFERNO SLAM!", (255, 80, 20), 0.8)
+                        self.damage_enemy()
+                        ball.fireball = False
                     if ball.charged:
                         paddle.stun = 1.4
                         self.callout("SHOCK: STUN", CYAN)
+                        if self.audio:
+                            self.audio.shock_stun()
                     ball.charged = ball.bank = False
                     self.encounter.returned(self, ball, False)
                     self.impact(ball.x, ball.y)
+                    if self.audio:
+                        self.audio.paddle_hit()
                     self.coordinate_multiball(ball)
                     if objective == "swarm" and ball.returned:
+                        self.encounter.swarm_paddle_destroyed(self, paddle)
                         self.enemies.remove(paddle)
                         self.damage_enemy()
                     elif objective == "final" and ball.returned:
                         self.damage_enemy()
                     break
 
+
         crossed_player = ball.x < ARENA.left - 18 if self.direction == 1 else ball.x > ARENA.right + 18
         crossed_enemy = ball.x > ARENA.right + 18 if self.direction == 1 else ball.x < ARENA.left - 18
         if crossed_player:
+            if ball.decoy:
+                # Decoy crossing the player goal line: dissolve silently, no HP loss.
+                if ball in self.balls:
+                    self.balls.remove(ball)
+                return
             self.hurt(rally_miss=True)
         elif crossed_enemy:
             if objective == "survive":
@@ -481,7 +809,7 @@ class Game:
                 ball.vx = -self.direction * abs(ball.vx)
                 ball.x = ARENA.right - BALL_RADIUS if self.direction == 1 else ARENA.left + BALL_RADIUS
             else:
-                damage = 2 if ball.charged and ball.bank else 1
+                damage = (2 if ball.charged and ball.bank else 1) + (1 if ball.fireball else 0)
                 for _ in range(min(damage, self.enemy_hp)):
                     if self.state == "play":
                         self.damage_enemy()
@@ -490,7 +818,7 @@ class Game:
                     ball.x, ball.y = ARENA.center
                     ball.vx, ball.vy = self.direction * BALL_START_SPEED, self.rng.uniform(-100, 100)
                     ball.delay = .8
-                    ball.charged = ball.bank = False
+                    ball.charged = ball.bank = ball.fireball = False
                     ball.returned = False
                     ball.trail.clear()
 
@@ -513,6 +841,14 @@ class Game:
     def menu_items(self):
         if self.state == "menu":
             return ["PLAY", "CONTINUE", "STATS", "OPTIONS", "QUIT"]
+        if self.state == "continue":
+            highest = max(1, min(len(LEVELS), self.store.data.get("highest_level", 1)))
+            items = []
+            for lvl in range(1, highest + 1):
+                name = LEVELS[lvl - 1]["name"]
+                items.append(f"LEVEL {lvl:02d}: {name}")
+            items.append("BACK")
+            return items
         if self.state == "pause":
             return ["RESUME", "RESTART CHECKPOINT", "MENU", "QUIT"]
         if self.state in ("defeat", "victory"):
@@ -527,7 +863,9 @@ class Game:
             data = self.store.data
             return [f"EFFECTS: {'ON' if data['settings']['effects'] else 'OFF'}",
                     f"HIGH CONTRAST: {'ON' if data['settings']['high_contrast'] else 'OFF'}",
+                    f"SOUND: {'ON' if data['settings'].get('sound', True) else 'OFF'}",
                     f"PADDLE: {data['selected_cosmetic']}", "BACK"]
+
         return []
 
     def activate(self):
@@ -540,7 +878,14 @@ class Game:
         elif action == "PLAY":
             self.start()
         elif action == "CONTINUE":
-            self.start("continue")
+            self.state = "continue"
+            highest = max(1, self.store.data.get("highest_level", 1))
+            cont = self.store.data.get("continue_level", 1)
+            self.selection = min(highest - 1, max(0, cont - 1))
+        elif action.startswith("LEVEL "):
+            lvl_str = action.split(":")[0].replace("LEVEL", "").strip()
+            chosen = int(lvl_str)
+            self.start(mode="continue", chosen_level=chosen)
         elif action == "RESTART CHECKPOINT":
             self.start("checkpoint")
         elif action == "NEXT LEVEL":
@@ -563,16 +908,28 @@ class Game:
         elif action.startswith("HIGH CONTRAST"):
             self.store.data["settings"]["high_contrast"] = not self.store.data["settings"]["high_contrast"]
             self.store.flush()
+        elif action.startswith("SOUND"):
+            current = self.store.data["settings"].get("sound", True)
+            self.store.data["settings"]["sound"] = not current
+            if self.audio:
+                self.audio.enabled = not current
+            self.store.flush()
         elif action.startswith("PADDLE"):
             data = self.store.data
             choices = data["unlocked_cosmetics"]
             data["selected_cosmetic"] = choices[(choices.index(data["selected_cosmetic"]) + 1) % len(choices)]
             self.store.flush()
+        if self.audio:
+            self.audio.menu_click()
+
 
     def handle_event(self, event):
         if event.type == pygame.QUIT:
             self.store.flush()
             self.state = "quit"
+        if event.type == pygame.MOUSEBUTTONDOWN and self.state == "play":
+            if event.button == 3:  # Right-click triggers Chrono
+                self.use_chrono()
         if event.type != pygame.KEYDOWN:
             return
         if event.key == pygame.K_ESCAPE:
@@ -581,18 +938,33 @@ class Game:
                 self.store.flush()
             elif self.state == "pause":
                 self.state = "play"
-            elif self.state in ("stats", "options"):
+            elif self.state in ("stats", "options", "continue"):
                 self.state, self.selection = "menu", 0
             return
         if self.state == "play":
             if event.key == pygame.K_SPACE:
                 self.use_ability()
+            elif event.key in (pygame.K_e, pygame.K_LSHIFT, pygame.K_RSHIFT):
+                self.use_chrono()
             return
         items = self.menu_items()
         if items:
-            if event.key in (pygame.K_w, pygame.K_UP, pygame.K_LEFT):
+            if event.key in (pygame.K_w, pygame.K_UP):
                 self.selection = (self.selection - 1) % len(items)
-            elif event.key in (pygame.K_s, pygame.K_DOWN, pygame.K_RIGHT):
+            elif event.key in (pygame.K_s, pygame.K_DOWN):
                 self.selection = (self.selection + 1) % len(items)
+            elif event.key == pygame.K_LEFT:
+                if self.state == "continue" and len(items) > 7:
+                    half = (len(items) - 1 + 1) // 2
+                    self.selection = max(0, self.selection - half)
+                else:
+                    self.selection = (self.selection - 1) % len(items)
+            elif event.key == pygame.K_RIGHT:
+                if self.state == "continue" and len(items) > 7:
+                    half = (len(items) - 1 + 1) // 2
+                    self.selection = min(len(items) - 1, self.selection + half)
+                else:
+                    self.selection = (self.selection + 1) % len(items)
             elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 self.activate()
+
