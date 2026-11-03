@@ -1,0 +1,122 @@
+[
+  {
+    "name": "Serve",
+    "opening": "You always let me serve first.",
+    "closing": "You sent it back\nwhere I could reach.",
+    "action": "serve",
+    "completion": "exchange",
+    "treatment": "tuesday"
+  },
+  {
+    "name": "Angle",
+    "opening": "“You only know one trick.”",
+    "closing": "“It worked on you.”",
+    "action": "angle",
+    "completion": "opening",
+    "treatment": "tuesday"
+  },
+  {
+    "name": "Between",
+    "opening": "Your hand waited halfway across.",
+    "closing": "I put mine beside it.\nYou stayed.",
+    "action": "fold",
+    "completion": "level shot",
+    "treatment": "tuesday"
+  },
+  {
+    "name": "Hold",
+    "opening": "Outside, the last bus knelt.",
+    "closing": "We let the next one go, too.",
+    "action": "rally",
+    "completion": "four exchanges",
+    "treatment": "tuesday"
+  },
+  {
+    "name": "Again?",
+    "opening": "At the door, your hand stayed on the switch.",
+    "closing": "The room went on humming.",
+    "action": "cross",
+    "completion": "center",
+    "treatment": "tuesday"
+  },
+  {
+    "name": "Serve",
+    "opening": "Tuesday, again.",
+    "closing": "Same corner. Same time.\nI moved. You didn’t.",
+    "action": "serve",
+    "completion": "exchange",
+    "treatment": "machine"
+  },
+  {
+    "name": "Angle",
+    "opening": "The machine remembers the angle.",
+    "closing": "The nick in the note.\nEven that comes back.",
+    "action": "measure",
+    "completion": "matched angle",
+    "treatment": "machine"
+  },
+  {
+    "name": "Between",
+    "opening": "It remembers where our hands were.",
+    "closing": "The space is right.\nNothing reaches back.",
+    "action": "diagram",
+    "completion": "level shot",
+    "treatment": "machine"
+  },
+  {
+    "name": "Hold",
+    "opening": "Two tones in the speaker.",
+    "closing": "I answered one.\nThe other crossed the glass.",
+    "action": "voices",
+    "completion": "answered tone",
+    "treatment": "machine"
+  },
+  {
+    "name": "Again?",
+    "opening": "It even kept the bus.",
+    "closing": "The doors hiss shut.\nNobody gets on.",
+    "action": "repeat",
+    "completion": "bus replay",
+    "treatment": "machine"
+  },
+  {
+    "name": "Serve",
+    "opening": "Morning, through the join in the curtains.",
+    "closing": "Dust on my thumb.",
+    "action": "trace",
+    "completion": "empty edge",
+    "treatment": "glass"
+  },
+  {
+    "name": "Angle",
+    "opening": "",
+    "closing": "There.\nYour side.",
+    "action": "offer",
+    "completion": "released trace",
+    "treatment": "glass"
+  },
+  {
+    "name": "Between",
+    "opening": "A pale square on the floor.",
+    "closing": "Light sits where the table sat.",
+    "action": "footprint",
+    "completion": "open lane",
+    "treatment": "glass"
+  },
+  {
+    "name": "Hold",
+    "opening": "Your side is open.",
+    "closing": "I still waited for the return.",
+    "action": "wait",
+    "completion": "unanswered beat",
+    "treatment": "glass"
+  },
+  {
+    "name": "Again?",
+    "opening": "Again?",
+    "closing": "I was there.",
+    "action": "last",
+    "completion": "empty edge",
+    "treatment": "glass"
+  }
+]

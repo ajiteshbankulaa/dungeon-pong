@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="132" viewBox="0 0 160 132">
+<title>Two reaches, holding a space between them</title>
+<path fill="#7EC2CD" fill-opacity=".72" d="M36 9 Q36 5 42 6 L55 8 Q60 9 60 15 L60 45 Q60 52 54 52 L42 52 Q36 51 36 46Z"/>
+<path fill="#A9A9E1" fill-opacity=".72" d="M101 77 Q101 71 107 71 L119 71 Q125 71 125 78 L125 116 Q125 122 119 123 L107 125 Q101 125 101 119Z"/>
+<path fill="none" stroke="#D4E4DD" stroke-opacity=".6" stroke-width=".7" d="M40 15 L40 43 M121 81 L121 115"/>
+</svg>

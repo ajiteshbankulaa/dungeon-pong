@@ -1,0 +1,47 @@
+{
+  "background": [
+    20,
+    23,
+    28
+  ],
+  "ivory": [
+    232,
+    229,
+    218
+  ],
+  "yellow": [
+    217,
+    197,
+    143
+  ],
+  "blue": [
+    154,
+    174,
+    190
+  ],
+  "red": [
+    166,
+    92,
+    99
+  ],
+  "walk_speed": 190,
+  "breath_pixels": 1.5,
+  "walk_bob_pixels": 2.5,
+  "walk_sway_degrees": 2.0,
+  "transition_seconds": 0.7,
+  "ball_speed": 425,
+  "paddle_speed": 650,
+  "paddle_height": 120,
+  "presence_inks": [
+    [
+      126,
+      194,
+      205
+    ],
+    [
+      169,
+      169,
+      225
+    ]
+  ]
+}

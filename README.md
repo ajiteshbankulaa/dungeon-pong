@@ -1,49 +1,35 @@
-# Dungeon Pong: The Cathedral of Return
+# What Returns
 
-A story-driven skill game where Pong becomes a dungeon crawler. Fight through
-125 encounters across five 25-room dungeons, uncover the Cathedral's memories, draft sidegrade relics,
-and master boss patterns without permanent stat inflation.
+A game poem in fifteen passages. A Tuesday-night game, the cabinet's reconstruction, and a last gesture on dusty glass.
 
-## Run
+Run with Python 3.11 or later:
 
-Requires Python 3.11+ and pygame 2.6.
+    python -m pip install -r requirements.txt
+    python main.py
 
-```powershell
-python -m pip install -r requirements.txt
-python main.py
-```
+Enter begins, C continues the saved passage. Walk with A/D or left/right. Approach the cabinet or table and press E. Move the paddle with W/S or up/down and press Space to serve. Enter advances a line. A connected controller uses the left stick and south button. Pull the stick back or hold Down/S to withdraw from the machine.
 
-Controls: W/S or arrows move; Space uses Blink; E, Shift, or right-click uses
-Chrono when equipped; Escape pauses. Xbox-style controllers use the left stick,
-A for Blink, B for Chrono, and Menu to pause.
+Esc pauses. M toggles audio. F toggles the 15 kHz CRT tone. R reduces motion. Q quits from pause. The rupture holds for 3.5 seconds, then shows the coat-hook fragment. A completed shot reveals its poem immediately. Enter advances the visible poem. Each serve begins with Space.
 
-The Options menu includes Classic/Cathedral presentation, high contrast,
-reduced flash, intensity, screen shake, UI scale, separate music/SFX levels,
-and readability assists. Assists change preparation time, never damage.
+The morning court is the reflection in a powered-off screen. Shots cross once. In the coda, approach the table to place the cup, then approach the cabinet to leave the ticket.
 
-## Campaign systems
+## Editing
 
-- Five themed dungeon maps and 125 named combat encounters
-- Authored story scenes, Codex memories, achievements, and permanent mastery
-- Skill-neutral paddle cosmetics and elite relic drafts
-- Deterministic daily challenge seeds
-- Procedural SFX and an adaptive-score prototype loop
-- Atomic, migrated save data in `data/save.json`
+The fifteen passage definitions and their script live in data/poem/text.json. The coat-hook lines, restart and coda are in poem/runtime.py. Edit cut-paper figures in assets/poem and act palettes in data/poem/palettes.json. Audio credits are in assets/poem/AUDIO-CREDITS.txt. Older design documents are historical drafts.
 
-The 20–30 hour content plan and story are documented in
-`NARRATIVE_BIBLE.md`; production priorities are in `PROFESSIONAL_INDIE_AUDIT.md`.
+## Checking the game
 
-## Quality
+    python -m pytest -q
+    python main.py --smoke
 
-```powershell
-python -m pytest -q
-python main.py --smoke
-```
+Smoke renders all fifteen passages using a temporary save. The test playthrough exercises all completion events, the rupture, controller/keyboard withdrawal, save continuation, and the unanswered morning beat. Around six minutes is a loose first-time target. Reading and interactions are self-paced. There are no per-room duration gates or automatic serves.
 
-Smoke mode simulates and renders every encounter with temporary save data.
+The continuous guide uses the live collision geometry. The Pong obstacle is a pair of reaching forms in assets/poem/reaches.svg. The domestic table remains a physical object in assets/poem/table.svg. Both are editable SVGs. Objective and progress indicators sit above the court. A missed shot returns to a ready ball, and completed returns remain earned.
 
-## License
+## Art and score
 
-See `LICENSE`. All current code and generated sound are repository-native;
-future commissioned art/music must include explicit attribution and license
-records before release.
+The three landscapes are original editable SVG layers in assets/poem/landscape-tuesday.svg, landscape-reconstruction.svg and landscape-morning.svg. Their shared mountain, sun and terrain change across the emotional arc. Palette values, including court contrast colors, live in data/poem/palettes.json. The paddles are faceted ink strokes; ball color preserves identity.
+
+The continuous score has two original movements, 95 seconds and 111 seconds, rather than a repeating four-note cue. The second develops the first movement with missing voices and a drier piano. Morning yields to room sound and the final acoustic chord. Playback continues across rooms and resumes after pause. The standalone listening version is assets/poem/audio/what-returns-suite.mp3.
+
+To edit the composition, change the progression, melody and voicings in tools/build_score.py, then run it. The authoring script requires numpy and ffmpeg; the game still requires only pygame. Piano source credit and license are in assets/poem/AUDIO-CREDITS.txt.

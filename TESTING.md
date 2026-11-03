@@ -1,14 +1,7 @@
-# Testing Dungeon Pong
+# Verification
 
-Run `python -m pytest -q` for simulation, persistence, campaign, render, and
-secondary prototype coverage. Run `python main.py --smoke` for a headless pass
-through all encounters. CI runs both commands on Windows and Linux.
+Run python -m pytest -q, then python main.py --smoke.
 
-Before a tagged build, manually verify keyboard and controller navigation,
-Classic and Cathedral presentation, reduced-flash and high-contrast modes,
-sound-off startup, a new save, a migrated older save, checkpoint recovery,
-story advancement, relic selection, Codex unlocks, and daily challenge launch.
+The tests complete all fifteen passages through real physics and explicit player inputs. They check continuous-guide equivalence, reachable openings around the fold, single clock progression, a single bus cue, a single final chord, ready-ball rendering, no automatic serving, manual scene advancement after completion, indefinite reading holds, the rupture lock, and keyboard/controller withdrawal.
 
-Fairness playtests should record room, death cause, perceived fairness,
-telegraph recognition, retry count, and chosen assist. No encounter ships if
-simultaneous hazards require an impossible save.
+Manual review should include both walking directions, the ticket placement, companion bracing gesture, missed ring feedback, restarting from a checkpoint, muting, reduced motion, and resizing. The approximate six-minute target requires unfamiliar players. Do not infer duration or emotional effectiveness from simulation alone.

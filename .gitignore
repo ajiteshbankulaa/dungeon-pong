@@ -11,3 +11,5 @@ release/
 deliverables/
 scratch/
 test_save.json
+data/poem-save.json
+data/poem-save.tmp

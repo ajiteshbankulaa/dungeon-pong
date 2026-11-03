@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="132" viewBox="0 0 160 132">
+<title>A table reduced to the fold that held it</title>
+<path fill="#615B64" d="M48 6 L101 5 L111 18 L111 126 L48 126Z"/>
+<path fill="#C7B494" d="M48 6 L89 19 L111 18 L101 5Z"/>
+<path fill="#8C7D78" d="M48 6 L89 19 L80 115 L48 126Z"/>
+<path fill="#B5A49A" d="M89 19 L111 18 L111 126 L80 115Z"/>
+<path fill="#454451" d="M80 115 L111 126 L48 126Z"/>
+<path fill="none" stroke="#E1CAA1" stroke-opacity=".65" d="M53 12 L84 24 L78 97 M104 30 L104 91"/>
+</svg>
