@@ -27,3 +27,15 @@ The score runs through three movements, lasting 90, 96, and 87 seconds per loop.
     python -m PyInstaller --noconfirm WhatReturns.spec
 
 The tests include a complete playthrough and regression checks for missing shots, input during pause, the silent winter cut, withdrawal, both morning responses, the cup, and the final chord. Smoke renders the passage artwork using an isolated save. The historical design and audit documents describe earlier drafts.
+
+## Itch.io release
+
+Windows uses the packaged desktop game. The HTML5 upload runs the same poem with pygame-ce through pygbag, with keyboard input and browser-local checkpoints. The first load fetches the WebAssembly runtime from the pygame-web CDN.
+
+To rebuild the uploads from this folder with pygame, matplotlib and pygbag 0.9.3 installed, first put the verified desktop ZIP at dist/WhatReturns-Windows.zip, then run:
+
+    python tools/stage_web.py
+    python -m pygbag --build --archive --no_opt --disable-sound-format-error --width 1100 --height 680 --title "What Returns" build/itch/whatreturns
+    python tools/package_itch.py
+
+Upload both ZIP files in dist/itch to one HTML game page. Mark the browser ZIP for in-browser play and the desktop ZIP for Windows. Use an 1100 by 680 viewport with fullscreen available.
