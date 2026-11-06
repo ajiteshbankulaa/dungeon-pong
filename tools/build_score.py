@@ -96,13 +96,24 @@ def main():
     with tempfile.TemporaryDirectory() as td:
         folder=Path(td)
         sample=load_sample(folder)
+        import json
+        metadata=OUT/'loop-durations.json'
+        durations=json.loads(metadata.read_text()) if metadata.exists() else {}
         for machine,name in ((False,'tuesday'),(True,'reconstruction')):
             track=render(sample,machine)
+            overlap=5*RATE
+            fade=np.linspace(0,1,overlap)[:,None]
+            seam=track[-overlap:]*(1-fade)+track[:overlap]*fade
+            track=np.concatenate([seam,track[overlap:-overlap]])
+            durations[name]=len(track)/RATE
+            filename='reconstruction-loop' if machine else name
             wav=folder/(name+'.wav')
             with wave.open(str(wav),'wb') as f:
                 f.setnchannels(2);f.setsampwidth(2);f.setframerate(RATE)
                 f.writeframes((track*32767).astype('<i2').tobytes())
-            subprocess.run(['ffmpeg','-v','error','-y','-i',str(wav),'-af','loudnorm=I=-23:TP=-3:LRA=11','-c:a','libvorbis','-q:a','4',str(OUT/(name+'.ogg'))],check=True)
+            subprocess.run(['ffmpeg','-v','error','-y','-i',str(wav),'-af','loudnorm=I=-23:TP=-3:LRA=11','-c:a','libvorbis','-q:a','4',str(OUT/(filename+'.ogg'))],check=True)
             print(name,round(len(track)/RATE,1),'seconds')
+        import json
+        (OUT/'loop-durations.json').write_text(json.dumps(durations))
 if __name__=='__main__':
     main()

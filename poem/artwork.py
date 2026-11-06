@@ -13,6 +13,10 @@ class Artwork:
     def __init__(self):
         self.backgrounds={}
         self.table=PaperTable()
+        self.objects={}
+        assets=Path(__file__).resolve().parent.parent/'assets/poem'
+        for name in ('cup','cabinet'):
+            self.objects[name]=pygame.image.load(str(assets/(name+'.svg'))).convert_alpha()
         assets = Path(__file__).resolve().parent.parent / 'assets/poem'
         self.torsos = [pygame.image.load(str(assets / f'{name}.svg')) for name in ('person', 'other')]
 
@@ -22,7 +26,28 @@ class Artwork:
             asset=Path(__file__).resolve().parent.parent/'assets/poem'/f'landscape-{names[loop]}.svg'
             image=pygame.image.load(str(asset)).convert()
             self.backgrounds[loop]=pygame.transform.smoothscale(image,(1100,680))
-        surface.blit(self.backgrounds[loop],(0,0))
+        p=PALETTES[loop]
+        surface.fill(p['sky'])
+        wall=(45,49,53) if loop==0 else (35,39,48) if loop==1 else (224,227,218)
+        surface.fill(wall)
+        window=pygame.transform.smoothscale(self.backgrounds[loop],(176,238))
+        surface.blit(window,(236,152))
+        trim=(103,103,94) if loop<2 else (161,173,164)
+        pygame.draw.rect(surface,trim,(230,146,188,250),3)
+        pygame.draw.line(surface,trim,(324,148),(324,394),3)
+        pygame.draw.line(surface,trim,(232,280),(416,280),2)
+        # The second cup has a stable place the hand can return to.
+        shelf=(97,105,107) if loop<2 else (143,157,150)
+        pygame.draw.line(surface,shelf,(505,395),(570,395),3)
+        if loop==2:
+            self.cup(surface,(535,374,27,22))
+        floor=(34,39,43) if loop==0 else (28,32,42) if loop==1 else (193,205,198)
+        pygame.draw.rect(surface,floor,(0,552,1100,128))
+        beam=pygame.Surface((1100,680),pygame.SRCALPHA)
+        color=(228,192,128,22) if loop==0 else (168,183,197,12) if loop==1 else (246,243,220,60)
+        pygame.draw.polygon(beam,color,[(235,395),(414,395),(804,680),(292,680)])
+        surface.blit(beam,(0,0))
+
 
     def presence(self,surface,x,y,which,t,loop,opacity=255,moving=False,reduced=False,scale=.72,loss=0,facing=1,phase=0,reach=0,lean=0,crouch=0):
         p=PALETTES[loop]
@@ -50,12 +75,28 @@ class Artwork:
         if facing < 0:
             image=pygame.transform.flip(image, True, False)
         image.set_alpha(round(opacity))
-        surface.blit(image,image.get_rect(midbottom=(round(x),round(y+17*scale))))
+        light_x,light_y=324,240
+        spread=max(-170,min(220,(x-light_x)*.38))
+        length=22+abs(x-light_x)*.035
         shadow=pygame.Surface((1100,680),pygame.SRCALPHA)
-        pygame.draw.polygon(shadow,(*(30,32,57),int(opacity*.24)),[(x-11,y),(x+11,y),(x-70,y+24),(x-114,y+20)])
+        width=12*scale+abs(stride)*3
+        pygame.draw.polygon(shadow,(24,31,44,int(opacity*.20)),
+                            [(x-width,y),(x+width,y),(x+spread+width*.6,y+length),(x+spread-width*1.5,y+length+5)])
         surface.blit(shadow,(0,0))
+        surface.blit(image,image.get_rect(midbottom=(round(x),round(y+17*scale))))
 
-    def chamber(self,g):
+
+    def cup(self,surface,rect):
+        image=pygame.transform.smoothscale(self.objects['cup'],(rect[2],rect[3]))
+        surface.blit(image,(rect[0],rect[1]))
+
+    def cabinet(self,surface,rect,loop=0):
+        image=pygame.transform.smoothscale(self.objects['cabinet'],(rect[2],rect[3]))
+        surface.blit(image,(rect[0],rect[1]))
+        if loop==2:
+            pygame.draw.rect(surface,(147,160,157),(rect[0]+28,rect[1]+46,47,46),border_radius=3)
+
+    def chamber(self,g,actors=True):
         c=g.canvas;p=PALETTES[g.loop]
         layer=pygame.Surface((1100,680),pygame.SRCALPHA)
         # A small inhabited terrace in a much larger remembered landscape.
@@ -64,36 +105,29 @@ class Artwork:
         pygame.draw.polygon(c,(35,53,60) if g.loop==0 else (35,34,54),
                             [(230,584),(864,584),(864,598),(230,598)])
         pygame.draw.line(c,p['court_accent'],(180,551),(920,551),1)
-        # The doorway frames the same horizon in each act.
-        for x in (257,407):
-            pygame.draw.line(layer,(*p['ink'],105),(x,242),(x,551),3)
-        pygame.draw.line(layer,(*p['ink'],105),(257,242),(407,242),3)
         # Shared folded silhouette, with one visible short support.
         rect=pygame.Rect(395,447,220,104)
         if g.loop<2:
             repairing=g.mode=='mend'
             progress=min(1,g.age/2.8) if repairing else 0
             tilt=0 if g.loop==1 or g.leveled else -1.5*(1-progress)
-            self.table.draw(c,rect,tilt,ticket=g.leveled or progress>.6,outline=g.loop==1)
+            self.table.draw(c,rect,0,ticket=False,outline=False)
             for i in range(2):
-                pygame.draw.arc(c,p['ink'],(464+i*44,433,16,14),0,math.pi,2)
-        # Cabinet is a portal, not a literal arcade prop.
-        pygame.draw.polygon(layer,(*p['shade'],100),[(710,550),(710,372),(763,365),(785,402),(785,550)])
-        pygame.draw.rect(layer,(*p['sky'],240),(720,384,46,50),border_radius=3)
-        pygame.draw.line(layer,(*p['light'],170),(722,443),(773,443),2)
-        pygame.draw.line(layer,(*p['ink'],170),(760,462),(768,462),2)
-        pygame.draw.line(layer,(*p['light'],150),(731,402),(757,402),2)
+                self.cup(c,(455+i*48,426,40,30))
+        self.cabinet(c,(690,340,110,211),g.loop)
+        if g.loop==0:
+            pygame.draw.ellipse(c,(196,177,131),(704,419,9,3))
         if g.loop==1:
             for i in range(7):
                 xx=480+i*37
                 pygame.draw.line(layer,(*p['shade'],40),(xx,465),(xx+10,489+i*4),1)
         c.blit(layer,(0,0))
 
-        if g.mode not in ('coda','ending'):
+        if actors and g.loop==0 and g.mode not in ('coda','ending'):
             opacity=235 if g.loop==0 else 100 if g.loop==1 else 165
             repairing=g.mode=='mend'
             ox=548 if repairing else 665
-            reach=min(1,g.age/.8) if repairing else 0
+            reach=min(1,g.age/.8) if repairing else .5 if g.mode=='cabinet' else 0
             self.presence(c,ox,551,1,g.t,g.loop,opacity,reduced=g.reduced,facing=-1,reach=reach,lean=reach*.5)
             # One tenuous thread joins the presences, interrupted in loop 2.
             thread=pygame.Surface((1100,680),pygame.SRCALPHA)
@@ -101,4 +135,4 @@ class Artwork:
             if g.loop==1:pts=pts[:12]
             pygame.draw.aalines(thread,(*p['light'],48),False,pts)
             c.blit(thread,(0,0))
-        self.presence(c,495 if g.mode=='mend' else g.x,551,0,g.t,g.loop,moving=g.stride_weight,reduced=g.reduced,facing=g.facing,phase=g.walk,reach=min(1,g.age/.9) if g.mode=='mend' else 0,crouch=0)
+        if actors:self.presence(c,495 if g.mode=='mend' else g.x,551,0,g.t,g.loop,moving=g.stride_weight,reduced=g.reduced,facing=g.facing,phase=g.walk,reach=min(1,g.age/.9) if g.mode=='mend' else 0,crouch=0)

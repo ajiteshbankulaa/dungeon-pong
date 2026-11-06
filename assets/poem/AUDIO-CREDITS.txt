@@ -1,3 +1,7 @@
 The final acoustic chord uses A3 and C4 samples from Salamander Grand Piano by Alexander Holm, distributed under Creative Commons Attribution 3.0. Samples obtained from https://tonejs.github.io/audio/salamander/A3.mp3 and https://tonejs.github.io/audio/salamander/C4.mp3. Mixed, attenuated, trimmed and faded for this game. License: https://creativecommons.org/licenses/by/3.0/ .
 
 The new original two-movement composition, arrangements, voicings and mix are authored for What Returns. Both movements use the credited Salamander A3 sample, resampled, filtered and layered. The authoring source is tools/build_score.py. what-returns-suite.mp3 combines both movements, deliberate silence, and the final chord for listening outside the game.
+
+Morning is an original sparse arrangement using the same credited Salamander A3 piano source. Its editable authoring script is tools/build_morning.py.
+
+The current v3 three-movement score is authored in tools/build_soundtrack.py using the same credited piano sample. Original arrangements and mixes differ across the three acts. No generated continuous noise bed is played.

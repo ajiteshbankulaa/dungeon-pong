@@ -11,7 +11,7 @@ from poem.shots import trajectory,shot_angle
 def tap(g):
     if g.mode in ('pong','glass'):
         key=pygame.K_SPACE
-    elif g.mode in ('cabinet','table','coin','coda'):
+    elif g.mode in ('cabinet','table','coin','coda','place_cup','return_glass'):
         key=pygame.K_e
     else:
         key=pygame.K_RETURN
@@ -51,13 +51,35 @@ def shooting_lane(g):
             return y
     raise AssertionError(('Unreachable opening',g.index,g.target_y))
 
+def trace(g):
+    tap(g)
+    for _ in range(330):
+        g.update(1/120,horizontal=1)
+    g.event(pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
+
 def play(g):
     if g.mode=='text':tap(g)
     if g.mode=='cabinet':approach(g,745)
     if g.mode=='table':
         approach(g,470)
         until(g,lambda:g.mode=='pong')
-    if g.kind in ('angle','measure','fold','diagram'):
+    if g.mode=='return_glass':approach(g,745)
+    if g.mode=='place_cup':
+        approach(g,470)
+        until(g,lambda:g.mode=='text')
+        assert g.cup and g.lines==g.passage['closing']
+        tap(g)
+        return
+    if g.mode=='glass':
+        trace(g)
+        if g.kind=='last':
+            assert g.mode=='coda'
+        else:
+            until(g,lambda:g.mode=='text')
+            assert g.lines==g.passage['closing']
+            tap(g)
+        return
+    if g.kind in ('angle','measure'):
         while g.mode=='pong':
             until(g,lambda:g.phase=='ready' or g.mode=='text')
             if g.mode=='text':break
@@ -65,6 +87,7 @@ def play(g):
             until(g,lambda:g.phase!='playing')
     else:
         if g.kind=='voices':aim(g,275)
+        if g.kind in ('fold','diagram'):aim(g,345)
         tap(g)
         def follow():
             if g.phase=='ready':tap(g)
@@ -91,9 +114,12 @@ def test_entire_score(g):
         elif i==9:
             assert g.mode=='withdraw'
             until(g,lambda:g.index==10,back=True)
+            assert g.mode=='dawn'
+            tap(g);until(g,lambda:g.mode=='text')
+            assert g.lines==PASSAGES[10]['opening']
     assert g.mode=='coda'
-    approach(g,470);assert g.cup
-    tap(g);approach(g,745);assert g.ticket
+    assert g.cup
+    approach(g,470);assert g.cup_held
     tap(g)
     cues=[];g.cue=cues.append;g.update(.01);g.update(1)
     assert cues==['piano'] and g.mode=='ending'
@@ -101,7 +127,7 @@ def test_entire_score(g):
     assert g.lines=='I remember you letting me serve first.'
 
 def test_single_clock_and_unanswered_beat(g):
-    g.index=13;g.enter();tap(g);tap(g)
+    g.index=13;g.enter();approach(g,745);trace(g)
     until(g,lambda:g.crossed)
     start=g.elapsed;y=g.py
     for _ in range(120):g.update(1/120,1)
@@ -109,7 +135,7 @@ def test_single_clock_and_unanswered_beat(g):
     assert g.py!=y and g.mode=='glass'
     g.update(.51)
     assert g.mode=='text'
-    assert g.lines=='I still waited for the return.'
+    assert g.lines==PASSAGES[13]['closing']
 
 def test_bus_once_and_no_hidden_wait(g):
     g.index=9;g.enter();g.mode_to('pong');g.count=3;g.serve()
@@ -119,7 +145,7 @@ def test_bus_once_and_no_hidden_wait(g):
     assert cues.count('bus')==1
     assert cues.count('bus')==1 and len(g.balls)==1
 
-@pytest.mark.parametrize('index',[1,2,6,7])
+@pytest.mark.parametrize('index',[1,6])
 def test_guide_matches_actual_shot(g,index):
     g.index=index;g.enter();g.mode_to('pong')
     lane=shooting_lane(g);aim(g,lane);g.serve()
@@ -129,7 +155,7 @@ def test_guide_matches_actual_shot(g,index):
     assert expected[-1][0]>=920
     if index!=6:assert abs(expected[-1][1]-230)<42
 
-@pytest.mark.parametrize('index',[0,5,10])
+@pytest.mark.parametrize('index',[0,5])
 def test_ready_ball_and_no_autoserve(g,index):
     g.index=index;g.enter();g.mode_to('glass' if index==10 else 'pong')
     g.update(1,1);g.draw()
@@ -163,6 +189,8 @@ def test_withdraw_keyboard_and_controller(g,key):
     h,v=read_axes(keys,[Pad()] if key is None else [])
     g.index=9;g.mode_to('withdraw')
     until(g,lambda:g.index==10,back=v>.45)
+    assert g.mode=='dawn'
+    tap(g);until(g,lambda:g.mode=='text')
     assert g.lines==PASSAGES[10]['opening']
 
 def test_save_and_replay(g):
@@ -237,5 +265,117 @@ def test_music_does_not_restart_at_room_boundary(g):
     g.index=1;g.enter()
     assert g.score.offset==5 and g.score.playing
     g.index=10;g.enter()
-    assert not g.score.playing
+    assert g.score.playing and g.score.act==2
 
+
+
+def test_last_invitation_can_rest(g):
+    g.index=14;g.enter();tap(g)
+    assert g.mode=='glass' and not g.balls
+    g.event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_e))
+    assert g.mode=='coda' and g.cup
+
+def test_voice_assets_are_distinct(g):
+    assert g.score.bank['note0'].get_raw()!=g.score.bank['hollow'].get_raw()
+
+def test_withdrawal_moves_away_in_the_same_room(g):
+    g.index=9;g.resolve()
+    assert g.x==745
+    g.update(.5,move=-1)
+    assert 455<g.x<745 and g.facing==-1 and g.walk>0
+
+
+def test_arcade_does_not_block_walking(g):
+    for mode in ('cabinet','coin','coda'):
+        g.mode_to(mode)
+        g.x=640
+        g.update(10,1)
+        assert g.x==860
+
+def test_start_and_resume_buttons(g):
+    g.draw()
+    g.event(pygame.event.Event(pygame.MOUSEBUTTONDOWN,button=1,pos=(550,445)))
+    assert g.mode=='text'
+    g.paused=True;g.draw()
+    g.event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN))
+    assert not g.paused
+
+def test_glass_trace_has_no_ball(g):
+    g.index=11;g.enter();tap(g);tap(g);g.update(.4)
+    assert g.dust_trail and not g.balls
+    x=g.finger_x
+    g.update(2)
+    assert g.finger_x==x and g.mode=='glass'
+    for _ in range(330):g.update(1/120,horizontal=1)
+    g.event(pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
+    until(g,lambda:g.mode=='text')
+    tap(g);assert g.index==12 and g.mode=='place_cup'
+
+
+def test_memory_scene_draws_exactly_two_figures(g,monkeypatch):
+    for index in (0,5):
+        g.index=index;g.enter();g.finish()
+        figures=[]
+        monkeypatch.setattr(g.art,'presence',lambda *args,**kwargs:figures.append(args[3]))
+        g.draw()
+        assert figures==([0,1] if index==0 else [0])
+
+def test_between_is_considerate_placement(g):
+    g.index=2;g.enter();tap(g)
+    until(g,lambda:g.mode=='pong')
+    aim(g,345);tap(g)
+    until(g,lambda:g.mode=='text',30,lambda:max(-1,min(1,(g.balls[0]['y']-g.py)/20)) if g.balls else 0)
+    assert g.target_count==2
+    assert g.lines==g.passage['closing']
+
+def test_foreground_actor_drawn_after_machine(g,monkeypatch):
+    g.index=0;g.mode_to('cabinet');g.x=745
+    order=[]
+    monkeypatch.setattr(g.art,'cabinet',lambda *a,**kw:order.append('machine'))
+    monkeypatch.setattr(g.art,'presence',lambda *a,**kw:order.append('actor'))
+    g.draw()
+    assert order[-1]=='actor' and order.index('machine')<len(order)-1
+
+def test_start_and_resume_accept_enter(g):
+    g.event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN))
+    assert g.mode=='text'
+    g.paused=True
+    g.event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN))
+    assert not g.paused
+
+
+
+def test_recorded_opponent_ignores_new_ball_position(g):
+    g.memories[0]=([(310.,.5)]*600,[17.])
+    g.index=5;g.enter();g.mode_to('pong');g.serve()
+    g.balls[0]['y']=470
+    g.update(.1)
+    assert g.oy==310 and g.cuff==.5
+
+def test_controller_can_resume_and_leave_last_trace(g):
+    g.paused=True
+    g.event(pygame.event.Event(pygame.JOYBUTTONDOWN,button=0))
+    assert not g.paused
+    g.index=14;g.enter();tap(g)
+    g.event(pygame.event.Event(pygame.JOYBUTTONDOWN,button=1))
+    assert g.mode=='coda'
+
+
+def test_recorded_motion_survives_checkpoint(g):
+    g.memories[0]=([(320.,.4),(325.,.5)],[18.])
+    g.index=5
+    g.save()
+    resumed=Poem(g.path)
+    assert resumed.memories[0]==g.memories[0]
+
+
+def test_lifting_early_keeps_trace_recoverable(g):
+    g.index=10;g.enter();tap(g);tap(g)
+    g.update(.5,horizontal=1)
+    g.event(pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
+    assert g.phase=='ready' and g.mode=='glass'
+    previous=g.finger_x
+    g.update(2,horizontal=1)
+    assert g.finger_x==previous
+    trace(g)
+    assert g.mode=='text'

@@ -2,6 +2,7 @@
 import array
 import math
 import random
+import json
 from functools import lru_cache
 from pathlib import Path
 import pygame
@@ -23,11 +24,11 @@ def library(rate,channels):
             if name=='room':
                 value=low*.035
             elif name=='bus':
-                value=(low*.16+noise*.002)*math.sin(math.pi*t/length)**2
+                value=(wave(77)*.012+wave(113)*.004)*math.sin(math.pi*t/length)**2
             elif name=='scuff':
-                value=low*.18*math.sin(math.pi*t/length)**2
+                value=low*.018*math.exp(-t*18)
             elif name=='thud':
-                value=(wave(83)*.055+low*.2)*math.exp(-t*15)
+                value=wave(83)*.045*math.exp(-t*15)
             elif name=='clink':
                 value=(wave(1480)+wave(2317)*.25)*.025*math.exp(-t*7)
             elif name=='whine':
@@ -42,6 +43,21 @@ def library(rate,channels):
         sounds[name]=pygame.mixer.Sound(buffer=samples)
     sounds['piano']=pygame.mixer.Sound(str(AUDIO.parent/'final-piano.ogg'))
     return sounds
+
+@lru_cache(maxsize=48)
+def harmonic_note(midi,rate,channels):
+    frequency=440*2**((midi-69)/12)
+    samples=array.array('h')
+    for i in range(int(rate*.7)):
+        t=i/rate
+        envelope=min(1,t/.012)*math.exp(-t*7)
+        value=(math.sin(math.tau*frequency*t)+.12*math.sin(math.tau*frequency*2*t))
+        samples.extend([int(value*envelope*750)]*channels)
+    return pygame.mixer.Sound(buffer=samples)
+
+TUESDAY_CHORDS=((45,52,59,60),(41,48,57,64),(48,55,59,64),(43,50,57,59),
+                (38,45,53,64),(45,52,59,60),(41,48,57,64),(43,50,57,62),
+                (38,45,53,60),(40,47,55,62),(41,48,57,64),(45,52,59,64))
 
 class Score:
     def __init__(self):
@@ -68,22 +84,28 @@ class Score:
             self.offset=0.
             self.phrase=0
         if mute:return
-        if not pygame.mixer.Channel(0).get_busy():
-            pygame.mixer.Channel(0).play(self.bank['room'],-1)
-        if act==2 or self.playing:return
-        name='tuesday' if act==0 else 'reconstruction'
-        pygame.mixer.music.load(str(AUDIO/(name+'.ogg')))
-        pygame.mixer.music.set_volume(.48 if act==0 else .38)
-        duration=95 if act==0 else 110.882
-        pygame.mixer.music.play(loops=-1,start=self.offset%duration)
+        pygame.mixer.Channel(0).stop()
+        if self.playing:return
+        name=('tuesday','reconstruction','morning')[act]
+        pygame.mixer.music.load(str(AUDIO/(name+'-v3.ogg')))
+        pygame.mixer.music.set_volume((.48,.38,.35)[act])
+        duration=json.loads((AUDIO/'loop-durations.json').read_text())[name]
+        pygame.mixer.music.play(loops=-1,start=self.offset%duration,fade_ms=900)
         self.playing=True
     def cue(self,name,mute=False):
         if not self.bank or mute:return
-        if name.startswith('note'):
+        sound=self.bank.get(name)
+        if name.startswith('note') and self.act==0:
+            seconds=(self.offset+max(0,pygame.mixer.music.get_pos())/1000)%90
+            chord=TUESDAY_CHORDS[int(seconds/2.5)%12]
+            midi=chord[1+self.phrase%3]+12
+            self.phrase+=1
+            rate,_,channels=pygame.mixer.get_init()
+            sound=harmonic_note(midi,rate,channels)
+        elif name.startswith('note'):
             name=f'note{self.phrase%4}'
             self.phrase+=1
-            if self.act==1:name='hollow'
-        sound=self.bank.get(name)
+            sound=self.bank[name]
         if sound:
             channel=pygame.mixer.find_channel()
             if channel:channel.play(sound)

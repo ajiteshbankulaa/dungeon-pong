@@ -9,40 +9,40 @@
   },
   {
     "name": "Angle",
-    "opening": "“You only know one trick.”",
-    "closing": "“It worked on you.”",
+    "opening": "“Show me the corner one.”",
+    "closing": "“Again. I was watching your hand.”",
     "action": "angle",
     "completion": "opening",
     "treatment": "tuesday"
   },
   {
     "name": "Between",
-    "opening": "Your hand waited halfway across.",
-    "closing": "I put mine beside it.\nYou stayed.",
+    "opening": "This time, I sent it straight to you.",
+    "closing": "You sent it straight back.\nNeither of us was keeping score.",
     "action": "fold",
     "completion": "level shot",
     "treatment": "tuesday"
   },
   {
     "name": "Hold",
-    "opening": "Outside, the last bus knelt.",
-    "closing": "We let the next one go, too.",
+    "opening": "Your bus stopped outside.",
+    "closing": "You could have gone.\nStill, you stayed for another exchange.",
     "action": "rally",
     "completion": "four exchanges",
     "treatment": "tuesday"
   },
   {
     "name": "Again?",
-    "opening": "At the door, your hand stayed on the switch.",
-    "closing": "The room went on humming.",
+    "opening": "“One more?”",
+    "closing": "I said yes.",
     "action": "cross",
     "completion": "center",
     "treatment": "tuesday"
   },
   {
     "name": "Serve",
-    "opening": "Tuesday, again.",
-    "closing": "Same corner. Same time.\nI moved. You didn’t.",
+    "opening": "There. That little lift.",
+    "closing": "I knew where it was going.",
     "action": "serve",
     "completion": "exchange",
     "treatment": "machine"
@@ -50,15 +50,15 @@
   {
     "name": "Angle",
     "opening": "The machine remembers the angle.",
-    "closing": "The nick in the note.\nEven that comes back.",
+    "closing": "I wait for you to say “again.”",
     "action": "measure",
     "completion": "matched angle",
     "treatment": "machine"
   },
   {
     "name": "Between",
-    "opening": "It remembers where our hands were.",
-    "closing": "The space is right.\nNothing reaches back.",
+    "opening": "Miss one for me.",
+    "closing": "You used to miss that one.",
     "action": "diagram",
     "completion": "level shot",
     "treatment": "machine"
@@ -66,22 +66,22 @@
   {
     "name": "Hold",
     "opening": "Two tones in the speaker.",
-    "closing": "I answered one.\nThe other crossed the glass.",
+    "closing": "I played my half.\nYours played without you.",
     "action": "voices",
     "completion": "answered tone",
     "treatment": "machine"
   },
   {
     "name": "Again?",
-    "opening": "It even kept the bus.",
-    "closing": "The doors hiss shut.\nNobody gets on.",
+    "opening": "One more?",
+    "closing": "I wanted another game.\nI wanted the quiet, too.",
     "action": "repeat",
     "completion": "bus replay",
     "treatment": "machine"
   },
   {
     "name": "Serve",
-    "opening": "Morning, through the join in the curtains.",
+    "opening": "Morning, through the curtains.",
     "closing": "Dust on my thumb.",
     "action": "trace",
     "completion": "empty edge",
@@ -89,24 +89,24 @@
   },
   {
     "name": "Angle",
-    "opening": "",
-    "closing": "There.\nYour side.",
+    "opening": "You wanted to see my hand.",
+    "closing": "Like this.",
     "action": "offer",
     "completion": "released trace",
     "treatment": "glass"
   },
   {
     "name": "Between",
-    "opening": "A pale square on the floor.",
-    "closing": "Light sits where the table sat.",
-    "action": "footprint",
-    "completion": "open lane",
+    "opening": "",
+    "closing": "I set out one cup.\nMy hand went back for yours.",
+    "action": "place_cup",
+    "completion": "cup placed",
     "treatment": "glass"
   },
   {
     "name": "Hold",
-    "opening": "Your side is open.",
-    "closing": "I still waited for the return.",
+    "opening": "",
+    "closing": "My hand was ready\nbefore I remembered.",
     "action": "wait",
     "completion": "unanswered beat",
     "treatment": "glass"
@@ -114,7 +114,7 @@
   {
     "name": "Again?",
     "opening": "Again?",
-    "closing": "I was there.",
+    "closing": "",
     "action": "last",
     "completion": "empty edge",
     "treatment": "glass"
