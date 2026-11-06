@@ -76,7 +76,8 @@ def play(g):
             assert g.mode=='coda'
         else:
             until(g,lambda:g.mode=='text')
-            assert g.lines==g.passage['closing']
+            closing='still_closing' if g.kind=='wait' else 'closing'
+            assert g.lines==g.passage[closing]
             tap(g)
         return
     if g.kind in ('angle','measure'):
@@ -119,7 +120,8 @@ def test_entire_score(g):
             assert g.lines==PASSAGES[10]['opening']
     assert g.mode=='coda'
     assert g.cup
-    approach(g,470);assert g.cup_held
+    approach(g,470)
+    until(g,lambda:g.cup_held)
     tap(g)
     cues=[];g.cue=cues.append;g.update(.01);g.update(1)
     assert cues==['piano'] and g.mode=='ending'
@@ -130,7 +132,9 @@ def test_single_clock_and_unanswered_beat(g):
     g.index=13;g.enter();approach(g,745);trace(g)
     until(g,lambda:g.crossed)
     start=g.elapsed;y=g.py
-    for _ in range(120):g.update(1/120,1)
+    marks=list(g.dust_trail)
+    for _ in range(120):g.update(1/120,1,horizontal=-1)
+    assert g.finger_x<g.release_x-42 and marks==g.dust_trail
     assert g.elapsed-start==pytest.approx(1)
     assert g.py!=y and g.mode=='glass'
     g.update(.51)
@@ -379,3 +383,50 @@ def test_lifting_early_keeps_trace_recoverable(g):
     assert g.finger_x==previous
     trace(g)
     assert g.mode=='text'
+
+def test_paused_glass_needs_fresh_contact(g):
+    g.index=14;g.enter();tap(g);tap(g)
+    for _ in range(320):g.update(1/120,horizontal=1)
+    g.event(pygame.event.Event(pygame.WINDOWFOCUSLOST))
+    for event in (pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE),
+                  pygame.event.Event(pygame.JOYBUTTONDOWN,button=1)):
+        g.event(event)
+    assert g.paused and g.mode=='glass' and g.phase=='playing'
+    tap_resume=pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN)
+    g.event(tap_resume)
+    x=g.finger_x
+    g.update(.3,horizontal=-1)
+    assert g.finger_x==x and not g.touching
+    tap(g);g.event(pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
+    assert g.mode=='coda'
+
+def test_still_hand_waits_without_drawing(g):
+    g.index=13;g.enter();approach(g,745);trace(g)
+    x=g.finger_x
+    marks=list(g.dust_trail)
+    g.update(1.49)
+    assert g.phase=='waiting' and g.finger_x==x and g.dust_trail==marks
+    g.update(.02)
+    assert g.lines==g.passage['still_closing']
+
+def test_silent_hooks_survive_resume(g):
+    g.index=4;g.enter();g.resolve();g.update(3.51)
+    for key in (pygame.K_ESCAPE,pygame.K_RETURN):
+        g.event(pygame.event.Event(pygame.KEYDOWN,key=key))
+    assert g.mode=='hooks' and not pygame.mixer.music.get_busy()
+
+def test_replay_is_one_exchange_back_to_choice(g):
+    g.index=9;g.enter();g.resolve();g.update(.4,move=-1);g.action()
+    assert g.mode=='pong' and not g.balls and g.replaying
+    tap(g)
+    until(g,lambda:g.mode=='withdraw',12)
+    assert g.count==1 and g.x==745
+
+def test_two_tones_sound_at_their_own_contacts(g):
+    g.index=8;g.enter();tap(g);aim(g,275)
+    cues=[];g.cue=cues.append;tap(g)
+    assert not cues
+    until(g,lambda:g.answered)
+    assert cues==['note0'] and not g.crossed
+    until(g,lambda:g.mode=='text')
+    assert cues==['note0','hollow']

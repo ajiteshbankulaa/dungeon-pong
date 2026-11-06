@@ -13,8 +13,7 @@ from poem.score import Score
 ROOT=Path(__file__).resolve().parent.parent
 STYLE=json.loads((ROOT/'data/poem/style.json').read_text())
 PASSAGES=json.loads((ROOT/'data/poem/text.json').read_text(encoding='utf-8'))
-HOOK='Winter. One coat by the door.\n\nThe empty hook beside it, still warm from your thumb.'
-CODA='I set out one cup.\nMy hand went back for yours.\nThen I picked up mine.'
+HOOK='After the funeral,\nI hung my coat beside your peg.'
 CARD='What Returns'
 COIN='I fed the machine a quarter.\nIt gave me back Tuesday.'
 W,H=1100,680
@@ -34,7 +33,7 @@ class Poem:
         self.progress=load_progress(self.path)
         self.canvas=pygame.Surface((W,H)); self.art=Artwork(); self.score=Score()
         self.fonts={}; self.index=0; self.mode='title'; self.age=self.t=0.
-        self.paused=self.muted=self.reduced=False; self.running=True
+        self.pad_hints=False;self.paused=self.muted=self.reduced=False; self.running=True
         self.x=450.;self.walk=0.;self.facing=1;self.stride_weight=0.;self.walking=False
         self.lines='';self.next_mode='';self.back=0.;self.angle=self.progress['angle']
         self.cup=False;self.cup_held=False
@@ -66,6 +65,11 @@ class Poem:
         self.dust_trail=[]
         self.finger_x=150.
         self.touching=False
+        self.hand_returned=False
+        self.release_x=150.
+        self.bus_age=None
+        self.replaying=False
+        self.saw_cuff=False
         self.replay_time=0.
         self.recording=[]
         self.recorded_returns=[]
@@ -106,7 +110,9 @@ class Poem:
             destination='cabinet'
         else:
             destination='pong'
-        self.poem(opening,destination)
+        if self.kind=='offer':
+            self.mode_to(destination)
+        else:self.poem(opening,destination)
     def finish(self):
         if self.completed:
             return
@@ -114,8 +120,13 @@ class Poem:
             self.memories[self.room]=(list(self.recording),list(self.recorded_returns))
         self.completed=True
         self.phase='complete'
-        if self.passage['closing']:
-            self.poem(self.passage['closing'],'resolved')
+        closing=self.passage['closing']
+        if self.kind=='wait' and not self.hand_returned:
+            closing=self.passage['still_closing']
+        if self.replaying:
+            self.resolve()
+        elif closing:
+            self.poem(closing,'resolved')
         else:
             self.resolve()
 
@@ -125,7 +136,7 @@ class Poem:
         if self.loop==2 and self.kind=='wait':
             self.phase='waiting'
             self.phase_age=0.
-            self.aftermath_seconds=1.5
+            self.release_x=self.finger_x
         else:
             self.finish()
 
@@ -160,9 +171,13 @@ class Poem:
             self.x=745
             self.mode_to('glass')
         elif self.mode=='place_cup' and abs(self.x-470)<65:
+            self.approach_x=self.x
+            self.approach_facing=self.facing
             self.mode_to('setting_cup')
         elif self.mode=='hooks':self.x=545;self.mode_to('coin')
-        elif self.mode=='coin' and abs(self.x-745)<65:self.poem(COIN,'restart')
+        elif self.mode=='coin' and abs(self.x-745)<65:
+            self.cue('thud')
+            self.poem(COIN,'restart')
         elif self.mode=='restart':self.index=5;self.enter()
         elif self.mode=='cabinet' and abs(self.x-745)<65:self.mode_to('pong')
         elif self.mode=='table' and abs(self.x-470)<60:
@@ -171,12 +186,14 @@ class Poem:
             if self.mode=='glass' and self.phase=='playing':self.touching=True
             elif self.phase=='ready':self.serve()
         elif self.mode=='coda':
-            if not self.cup and abs(self.x-470)<60:
-                self.cup=True;self.cue('clink');self.poem('I set out one cup.\nMy hand went back for yours.','coda')
-            elif self.cup and abs(self.x-470)<60:
-                self.cup_held=True;self.poem('Then I picked up mine.\nIt was still warm.','final')
+            if self.cup and abs(self.x-470)<65:
+                self.approach_x=self.x
+                self.mode_to('collect_cup')
         elif self.mode=='withdraw':
-            self.index=9;self.enter()
+            self.reset()
+            self.replaying=True
+            self.mode_to('pong')
+            if self.score.playing:pygame.mixer.music.set_volume(.38)
         elif self.mode=='ending':self.mode_to('title')
     def serve(self):
         if self.mode=='glass' and self.phase=='playing':
@@ -197,6 +214,9 @@ class Poem:
             self.attempts+=1
             if abs(a-self.angle)>min(.75,.16+.07*self.attempts):
                 self.phase='ready';self.feedback='Bring the white line onto the recorded line.';return
+        if self.kind=='measure':
+            a=self.angle
+            self.py=345+a*141/.88
         self.replay_time=0.
         self.recording=[]
         self.recorded_returns=[]
@@ -207,8 +227,6 @@ class Poem:
         if self.kind=='voices':
             self.balls[0].update(x=790.,y=275.,vx=-325.)
             self.balls.append(dict(x=320.,y=415.,vx=260.,vy=0.,voice=1,trail=[],banks=0))
-            self.cue('note0');self.cue('hollow')
-        elif self.loop==2:self.cue('scuff')
     def update(self,dt,move=0,back=False,horizontal=0):
         if self.paused:return
         self.t+=dt;self.age+=dt
@@ -219,7 +237,17 @@ class Poem:
         if self.mode=='dawn':
             if self.age>=3:self.poem(PASSAGES[10]['opening'],'glass')
             return
-        if self.mode=='setting_cup':
+        if self.mode in ('setting_cup','collect_cup'):
+            t=min(1,self.age/.45)
+            t=t*t*(3-2*t)
+            self.x=self.approach_x+(443-self.approach_x)*t
+            if self.mode=='collect_cup':
+                self.facing=1
+                if self.age>=.85:
+                    self.cup_held=True
+                    self.poem('Then I picked up mine.\nIt was still warm.','final')
+                return
+            if self.age>=.45:self.facing=1
             if self.age>=.7 and not self.cup:
                 self.cup=True
                 self.cue('clink')
@@ -232,7 +260,7 @@ class Poem:
                 self.mode_to('pong')
             return
         if self.mode=='final':
-            self.mode_to('ending');self.cue('piano');self.save(True);return
+            self.score.stop();self.mode_to('ending');self.cue('piano');self.save(True);return
         if self.mode=='restart':self.index=5;self.enter();return
         if self.mode not in ('coin','restart') and not (self.mode=='text' and self.next_mode=='restart'):
             self.score.tick(dt,self.loop,self.muted)
@@ -261,6 +289,8 @@ class Poem:
         self.elapsed+=dt
         self.phase_age+=dt
         if self.phase=='waiting':
+            self.finger_x=max(150.,min(950.,self.finger_x+horizontal*420*dt))
+            if self.release_x-self.finger_x>=42:self.hand_returned=True
             if self.phase_age>=1.5:self.finish()
             return
         if self.phase!='playing':
@@ -274,12 +304,17 @@ class Poem:
         self.touching=False
         if self.phase!='playing':
             return
-        if self.finger_x>=900:
+        enough=self.finger_x>=900
+        if self.kind=='trace':enough=self.finger_x>=360
+        if self.kind=='offer':
+            corner=trajectory(345+self.angle*141/.88,self.angle)[-1][1]
+            enough=enough or (self.finger_x>=720 and abs(self.py-corner)<80)
+        if enough:
             self.crossed=True
             self.aftermath()
         else:
             self.phase='ready'
-            self.feedback='Touch again and carry the line to the far edge.'
+            self.feedback='Touch again and carry the line a little farther.'
 
     def glass_step(self,dt,horizontal=0):
         if not self.touching:
@@ -307,7 +342,7 @@ class Poem:
                 self.oy=sample[0]
                 self.cuff=sample[1]
             else:
-                self.oy=345.
+                self.oy=self.py if self.kind=='serve' and self.return_index==0 else 345.
         elif self.kind=='fold':
             self.oy=345.
         else:
@@ -315,24 +350,31 @@ class Poem:
             self.oy+=max(-220*dt,min(220*dt,destination-self.oy))
         if self.loop==0:
             self.recording.append((self.oy,self.cuff))
+        if self.cuff>.5:self.saw_cuff=True
+        if self.bus_age is not None:
+            self.bus_age+=dt
+        elif (self.kind=='repeat' and self.replay_time>=.3 and not self.replaying) or (self.kind=='rally' and self.count>=2):
+            self.bus_age=0.
+            self.cue('bus')
         for b in list(self.balls):
             self.advance_ball(b,dt)
-            if self.kind in ('repeat','cross') and self.count>=3 and b['vx']>0 and b['x']>=550:
+            if self.kind in ('repeat','cross') and (not self.replaying or self.count>=1) and b['vx']>0 and b['x']>=550:
                 b.update(x=550.,vx=0.,vy=0.)
-                if self.kind=='repeat':self.cue('bus')
                 self.aftermath(.8);return
             if self.kind in ('angle','measure') and b['vx']>0 and b['x']>=920:
-                if self.kind=='measure' or abs(b['y']-self.target_y)<min(90,42+self.attempts*7):
+                if b.get('corner') or self.kind=='measure' or abs(b['y']-self.target_y)<min(90,42+self.attempts*7):
+                    b['corner']=True
+                    if b['x']<982:continue
                     if self.kind=='angle':
                         self.angle=self.launched_angle
                     self.hit_target(b)
                     return
-                self.retry('The ring is above the shot. Adjust the guide and serve again.' if b['y']>self.target_y else 'The ring is below the shot. Adjust the guide and serve again.')
+                self.retry('Aim the guide higher, into the opening.' if b['y']>self.target_y else 'Aim the guide lower, into the opening.')
                 return
             if self.kind=='voices':
-                if b['voice']==1 and b['x']>=980:self.balls.remove(b);self.crossed=True
+                if b['voice']==1 and b['x']>=980:self.balls.remove(b);self.crossed=True;self.cue('hollow')
                 elif b['voice']==0 and b['x']<=150:
-                    if abs(b['y']-self.py)<=66:self.answered=True;self.cue('hollow');self.balls.remove(b)
+                    if abs(b['y']-self.py)<=66:self.answered=True;self.cue('note0');self.balls.remove(b)
                     else:self.crossed=False;self.answered=False;self.retry('Catch the blue-green tone. Let the other pass.');return
                 if self.answered and self.crossed:self.aftermath(.8)
                 continue
@@ -348,14 +390,11 @@ class Poem:
                 self.impact=.24;self.cue('hollow' if self.loop==1 else 'note1')
                 if self.kind in ('fold','diagram'):
                     self.target_count+=1
-                    if self.target_count>=2:
-                        self.finish()
-                        return
             elif b['vx']<0 and b['x']<=152 and abs(b['y']-self.py)<66:
                 self.count+=1;self.impact=.24
-                if self.kind=='rally' and self.count==2:self.cue('bus')
                 self.cue('hollow' if self.loop==1 else f'note{self.count%4}')
-                if self.kind=='serve' and self.count>=3 or self.kind=='rally' and self.count>=4:
+                if (self.kind=='serve' and self.count>=2 or self.kind=='rally' and self.count>=4
+                        or self.kind in ('fold','diagram') and self.target_count>=2):
                     self.aftermath(.6);return
                 angle=(b['y']-self.py)/66*.65
                 b.update(x=153.,vx=425*math.cos(angle),vy=425*math.sin(angle))

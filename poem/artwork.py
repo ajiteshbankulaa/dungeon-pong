@@ -126,13 +126,7 @@ class Artwork:
         if actors and g.loop==0 and g.mode not in ('coda','ending'):
             opacity=235 if g.loop==0 else 100 if g.loop==1 else 165
             repairing=g.mode=='mend'
-            ox=548 if repairing else 665
-            reach=min(1,g.age/.8) if repairing else .5 if g.mode=='cabinet' else 0
+            ox=548 if repairing else 775
+            reach=min(1,g.age/.8) if repairing else .65
             self.presence(c,ox,551,1,g.t,g.loop,opacity,reduced=g.reduced,facing=-1,reach=reach,lean=reach*.5)
-            # One tenuous thread joins the presences, interrupted in loop 2.
-            thread=pygame.Surface((1100,680),pygame.SRCALPHA)
-            pts=[(g.x+(665-g.x)*i/40,506+math.sin(i/40*math.pi)*18) for i in range(41)]
-            if g.loop==1:pts=pts[:12]
-            pygame.draw.aalines(thread,(*p['light'],48),False,pts)
-            c.blit(thread,(0,0))
         if actors:self.presence(c,495 if g.mode=='mend' else g.x,551,0,g.t,g.loop,moving=g.stride_weight,reduced=g.reduced,facing=g.facing,phase=g.walk,reach=min(1,g.age/.9) if g.mode=='mend' else 0,crouch=0)

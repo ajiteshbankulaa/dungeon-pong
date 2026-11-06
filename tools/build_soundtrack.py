@@ -39,6 +39,9 @@ def compose(sample,act):
         if bar%2==0:
             for offset,note in zip((2.5,4.2),(76,72) if bar<7 else (74,69)):
                 add(track,sample,start+offset,note,5,.20,.58)
+    # A shared G and D carry the last bar into the first morning voicing.
+    add(track,sample,84,55,7,.12,.42)
+    add(track,sample,85.8,62,5,.09,.60)
     dry=track.copy()
     for delay,gain in ((.27,.15),(.67,.08),(1.3,.04)):
         n=int(delay*RATE)
@@ -55,15 +58,23 @@ def main():
         sample*=np.clip(envelope/.0007,0,1)**2
         for act,name in enumerate(('tuesday','reconstruction','morning')):
             track=compose(sample,act)
-            n=5*RATE;fade=np.linspace(0,1,n)[:,None]
-            track=np.concatenate([track[-n:]*(1-fade)+track[:n]*fade,track[n:-n]])
+            n=5*RATE
+            tail=track[-n:].copy()
+            track=track[:-n]
+            track[:n]+=tail*np.linspace(1,0,n)[:,None]
+            # Static gain keeps the first and last measures at the same mix.
+            rms=np.sqrt(np.mean(track**2))
+            track*=min(.052/max(rms,1e-7),.72/max(np.abs(track).max(),1e-7))
+            seam=np.linspace(0,1,round(.006*RATE))[:,None]
+            track[:len(seam)]*=seam
+            track[-len(seam):]*=seam[::-1]
             durations[name]=len(track)/RATE
             wav=Path(td)/(name+'.wav')
             with wave.open(str(wav),'wb') as f:
                 f.setnchannels(2);f.setsampwidth(2);f.setframerate(RATE)
                 f.writeframes(np.clip(track*32767,-32768,32767).astype('<i2').tobytes())
-            subprocess.run(['ffmpeg','-v','error','-y','-i',str(wav),'-af',
-                            'loudnorm=I=-25:TP=-4:LRA=12','-ar','24000','-c:a','libvorbis','-q:a','4',str(OUT/(name+'-v3.ogg'))],check=True)
+            subprocess.run(['ffmpeg','-v','error','-y','-i',str(wav),
+                            '-ar','24000','-c:a','libvorbis','-q:a','4',str(OUT/(name+'-v3.ogg'))],check=True)
             print(name,durations[name])
     (OUT/'loop-durations.json').write_text(json.dumps(durations))
 if __name__=='__main__':main()

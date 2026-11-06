@@ -17,8 +17,8 @@
   },
   {
     "name": "Between",
-    "opening": "This time, I sent it straight to you.",
-    "closing": "You sent it straight back.\nNeither of us was keeping score.",
+    "opening": "",
+    "closing": "Straight back.\nNeither of us was keeping score.",
     "action": "fold",
     "completion": "level shot",
     "treatment": "tuesday"
@@ -26,7 +26,7 @@
   {
     "name": "Hold",
     "opening": "Your bus stopped outside.",
-    "closing": "You could have gone.\nStill, you stayed for another exchange.",
+    "closing": "Your bus went.\nYou sent it back.",
     "action": "rally",
     "completion": "four exchanges",
     "treatment": "tuesday"
@@ -41,7 +41,7 @@
   },
   {
     "name": "Serve",
-    "opening": "There. That little lift.",
+    "opening": "I took my side again.",
     "closing": "I knew where it was going.",
     "action": "serve",
     "completion": "exchange",
@@ -58,7 +58,7 @@
   {
     "name": "Between",
     "opening": "Miss one for me.",
-    "closing": "You used to miss that one.",
+    "closing": "I liked your excuse.",
     "action": "diagram",
     "completion": "level shot",
     "treatment": "machine"
@@ -107,6 +107,7 @@
     "name": "Hold",
     "opening": "",
     "closing": "My hand was ready\nbefore I remembered.",
+    "still_closing": "I waited there.",
     "action": "wait",
     "completion": "unanswered beat",
     "treatment": "glass"
