@@ -21,32 +21,31 @@ class Artwork:
         self.torsos = [pygame.image.load(str(assets / f'{name}.svg')) for name in ('person', 'other')]
 
     def background(self,surface,loop,t,reduced=False,loss=False):
-        if loop not in self.backgrounds:
-            names=('tuesday','reconstruction','morning')
-            asset=Path(__file__).resolve().parent.parent/'assets/poem'/f'landscape-{names[loop]}.svg'
-            image=pygame.image.load(str(asset)).convert()
-            self.backgrounds[loop]=pygame.transform.smoothscale(image,(1100,680))
         p=PALETTES[loop]
         surface.fill(p['sky'])
-        wall=(45,49,53) if loop==0 else (35,39,48) if loop==1 else (224,227,218)
-        surface.fill(wall)
-        # A single lit aperture locates the room without describing a landscape.
-        light=(205,170,117) if loop==0 else (111,125,144) if loop==1 else (242,232,199)
-        pygame.draw.polygon(surface,light,[(268,186),(345,162),(378,185),(366,377),(255,377)])
-        pygame.draw.line(surface,wall,(313,172),(313,377),5)
-        pygame.draw.line(surface,wall,(255,274),(378,274),5)
-        # The second cup has a stable place the hand can return to.
-        shelf=(97,105,107) if loop<2 else (143,157,150)
-        pygame.draw.line(surface,shelf,(505,395),(570,395),3)
-        if loop==2:
-            self.cup(surface,(535,374,27,22))
-        floor=(34,39,43) if loop==0 else (28,32,42) if loop==1 else (193,205,198)
-        pygame.draw.rect(surface,floor,(0,552,1100,128))
+        # The same window divides one shared light into two familiar places.
+        light=((221,183,143),(115,137,157),(245,238,207))[loop]
+        pane=pygame.Surface((1100,680),pygame.SRCALPHA)
+        pygame.draw.rect(pane,(*light,165 if loop<2 else 230),(244,154,162,239),border_radius=76)
+        pygame.draw.rect(pane,(*light,165 if loop<2 else 230),(244,235,162,158))
+        pygame.draw.line(pane,(*p['sky'],255),(325,154),(325,393),7)
+        surface.blit(pane,(0,0))
+        pygame.draw.rect(surface,p['floor'],(0,552,1100,128))
         beam=pygame.Surface((1100,680),pygame.SRCALPHA)
-        color=(228,192,128,22) if loop==0 else (168,183,197,12) if loop==1 else (246,243,220,60)
-        pygame.draw.polygon(beam,color,[(235,395),(414,395),(804,680),(292,680)])
+        for x in (244,332):
+            # Two slanted pools belong to one window; morning has room to enter.
+            color=(*light,16 if loop==1 else 25 if loop==0 else 49)
+            pygame.draw.polygon(beam,color,[(x,393),(x+72,393),(x+340,680),(x+175,680)])
         surface.blit(beam,(0,0))
+        pygame.draw.line(surface,p['shade'],(505,395),(570,395),2)
+        if loop==2:self.cup(surface,(535,374,27,22))
 
+    def court_background(self,surface,loop):
+        key=('court',loop)
+        if key not in self.backgrounds:
+            asset=Path(__file__).resolve().parent.parent/'assets/poem'/f'court-{loop}.svg'
+            self.backgrounds[key]=pygame.image.load(str(asset)).convert()
+        surface.blit(self.backgrounds[key],(0,0))
 
     def presence(self,surface,x,y,which,t,loop,opacity=255,moving=False,reduced=False,scale=.72,loss=0,facing=1,phase=0,reach=0,lean=0,crouch=0):
         p=PALETTES[loop]
@@ -63,12 +62,25 @@ class Artwork:
             tone = mix((42,48,70), (142,178,200) if which==0 else (155,150,198), .55 if side < 0 else .82)
             pygame.draw.lines(body, tone, False, [(hip[0]+side*5,153+crouch*28), (knee[0]+crouch*10,knee[1]+crouch*8), foot], 8)
             pygame.draw.line(body, tone, foot, (foot_x+6,foot[1]), 5)
-        tone=(119,177,186) if which==0 else (168,155,196)
-        # Anonymous figures are assembled from a few stepped ink shapes.
-        pygame.draw.polygon(body,tone,[(78,30),(96,23),(109,37),(102,58),(80,60),(71,44)],4)
-        pygame.draw.polygon(body,tone,[(78,72),(99,68),(109,102),(102,147),(74,154),(66,124)])
-        pygame.draw.line(body,tone,(78,81),(63,119),8)
-        pygame.draw.line(body,tone,(101,81),(116,114),8)
+        tone=(130,185,190) if which==0 else (181,166,199)
+        # An open face and a single unwaisted coat suggest a person without portraiture.
+        sway=0 if reduced else stride*2+lean*4
+        head=pygame.Rect(76+round(sway),29+round(breath),28,33)
+        pygame.draw.ellipse(body,tone,head,3)
+        torso=pygame.Surface((180,240),pygame.SRCALPHA)
+        pygame.draw.polygon(torso,tone,[(81,73),(100,73),(107,145),(73,145)])
+        pygame.draw.polygon(torso,(*mix(tone,(46,50,60),.22),255),
+                            [(95,75),(100,73),(107,145),(94,145)])
+        body.blit(torso,(round(sway),round(breath)))
+        arm_swing=stride*9
+        for side in (-1,1):
+            shoulder=(90+side*10+sway,82+breath)
+            elbow=(90+side*19+sway+side*arm_swing*.35,108+breath)
+            wrist=(90+side*16+sway+side*arm_swing,130+breath)
+            pygame.draw.lines(body,tone,False,[shoulder,elbow,wrist],5)
+        if which==1:
+            pygame.draw.line(body,(234,220,227),(102+sway-arm_swing,123+breath),
+                             (110+sway-arm_swing,122+breath),3)
         if reach:
             tone=(164,217,224) if which==0 else (209,206,245)
             elbow=(120,112-reach*14+crouch*75)
@@ -77,8 +89,6 @@ class Artwork:
         image = pygame.transform.smoothscale(body,(round(180*scale),round(240*scale)))
         if facing < 0:
             image=pygame.transform.flip(image, True, False)
-        stamp=pygame.transform.scale(image,(max(1,image.get_width()//2),max(1,image.get_height()//2)))
-        image=pygame.transform.scale(stamp,image.get_size())
         image.set_alpha(round(opacity))
         light_x,light_y=324,240
         spread=max(-170,min(220,(x-light_x)*.38))
@@ -104,12 +114,7 @@ class Artwork:
     def chamber(self,g,actors=True):
         c=g.canvas;p=PALETTES[g.loop]
         layer=pygame.Surface((1100,680),pygame.SRCALPHA)
-        # A small inhabited terrace in a much larger remembered landscape.
-        pygame.draw.polygon(c,(52,70,73) if g.loop==0 else (47,45,66),
-                            [(180,551),(920,551),(864,584),(230,584)])
-        pygame.draw.polygon(c,(35,53,60) if g.loop==0 else (35,34,54),
-                            [(230,584),(864,584),(864,598),(230,598)])
-        pygame.draw.line(c,p['court_accent'],(180,551),(920,551),1)
+        pygame.draw.aaline(c,p['shade'],(210,551),(902,551))
         # Shared folded silhouette, with one visible short support.
         rect=pygame.Rect(395,447,220,104)
         if g.loop<2:
