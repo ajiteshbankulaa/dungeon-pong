@@ -106,7 +106,7 @@ class Poem:
             self.cup=self.index>12
             self.cup_held=False
             destination={12:'place_cup',13:'return_glass'}.get(self.index,'glass')
-        elif self.room==0:
+        elif self.index==0:
             destination='cabinet'
         else:
             destination='pong'
@@ -177,8 +177,9 @@ class Poem:
             self.poem('The tea was still warm.','final')
         elif self.mode=='hooks':self.x=545;self.mode_to('coin')
         elif self.mode=='coin' and abs(self.x-745)<65:
+            self.reset()
             self.cue('thud')
-            self.poem(COIN,'restart')
+            self.mode_to('quarter')
         elif self.mode=='restart':self.index=5;self.enter()
         elif self.mode=='cabinet' and abs(self.x-745)<65:self.mode_to('pong')
         elif self.mode=='table' and abs(self.x-470)<60:
@@ -219,6 +220,9 @@ class Poem:
             if self.age>=3.5:self.mode_to('hooks')
             return
         if self.mode in ('hooks','title','ending'):return
+        if self.mode=='quarter':
+            if self.age>=1.35:self.poem(COIN,'restart')
+            return
         if self.mode=='dawn':
             if self.age>=3:self.poem(PASSAGES[10]['opening'],'glass')
             return

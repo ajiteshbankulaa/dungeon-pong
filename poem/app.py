@@ -188,7 +188,7 @@ class Poem(Simulation):
     def chamber(self,actors=True):
         self.art.background(self.canvas,self.loop,self.t,self.reduced)
         if self.loop==2:self.glass()
-        elif self.mode in ('coin','restart') or self.mode=='text' and self.next_mode=='restart':
+        elif self.mode in ('coin','quarter','restart') or self.mode=='text' and self.next_mode=='restart':
             self.art.background(self.canvas,1,self.t,True)
             self.art.table.draw(self.canvas,pygame.Rect(395,447,220,104))
             self.art.cup(self.canvas,(455,426,40,30))
@@ -248,9 +248,43 @@ class Poem(Simulation):
         if carrying or (placing and not self.cup) or (taking and self.age>=.45):
             self.art.cup(c,(round(wrist.x-size*.85),round(wrist.y-size*.325),size,round(size*.75)))
 
+    def quarter_transition(self):
+        # The coin drops first; light then opens out from the physical screen.
+        age=self.age
+        self.chamber(actors=False)
+        self.art.presence(self.canvas,self.x,551,0,self.t,1,reduced=self.reduced)
+        u=min(1,age/.34)
+        pygame.draw.ellipse(self.canvas,(219,190,138),(704+19*u,419+65*u,8,3))
+        if age<.34:return
+        old=self.canvas.copy()
+        index=self.index
+        self.index=5
+        self.court()
+        self.index=index
+        u=min(1,(age-.34)/1.01)
+        u=u*u*(3-2*u)
+        if self.reduced:
+            self.canvas.set_alpha(None)
+            old.set_alpha(round(255*(1-u)))
+            self.canvas.blit(old,(0,0))
+        else:
+            new=self.canvas.copy()
+            self.canvas.blit(old,(0,0))
+            rect=pygame.Rect(0,0,round(46+(W-46)*u),max(2,round(2+(H-2)*u)))
+            rect.center=(round(745+(550-745)*u),round(407+(340-407)*u))
+            self.canvas.blit(new,rect,rect)
+            pygame.draw.line(self.canvas,(177,191,193),rect.topleft,rect.topright)
+
     def draw(self):
         c=self.canvas;mode=self.mode;p=PALETTES[self.loop]
-        if mode in ('rupture','hooks'):
+        if mode=='quarter':
+            self.quarter_transition()
+        elif mode=='text' and self.next_mode=='restart':
+            index=self.index
+            self.index=5
+            self.court()
+            self.index=index
+        elif mode in ('rupture','hooks'):
             self.loss_scene(mode=='hooks')
         elif mode=='title':
             self.art.background(c,0,self.t,self.reduced)
@@ -299,7 +333,7 @@ class Poem(Simulation):
                 self.text(self.lines,x,self.roll_y-48,25,(238,233,213),True)
                 self.text('A to continue' if self.pad_hints else 'Enter to continue',903,510,14,(226,226,211))
             else:self.poem_panel(self.lines,174)
-        if mode not in ('title','hooks','rupture','ending','restart','coin') and not (mode=='text' and self.next_mode=='restart'):
+        if mode not in ('title','hooks','rupture','ending','restart','coin','quarter') and not (mode=='text' and self.next_mode=='restart'):
             self.text(f'{self.loop+1:02}  /  {self.passage["name"]}',70,38,14,self.accent,center=False)
         if self.paused:
             veil=pygame.Surface((W,H),pygame.SRCALPHA);veil.fill((20,27,32,225));c.blit(veil,(0,0))
@@ -395,7 +429,7 @@ class Poem(Simulation):
             self.action()
 
     def resume_score(self):
-        if self.mode not in ('title','rupture','hooks','coin','restart','final','ending') and not (self.mode=='text' and self.next_mode=='restart'):
+        if self.mode not in ('title','rupture','hooks','coin','quarter','restart','final','ending') and not (self.mode=='text' and self.next_mode=='restart'):
             self.score.enter(self.loop,self.muted)
             if self.mode=='withdraw' and self.score.playing:pygame.mixer.music.set_volume(.38*(1-self.back))
 
