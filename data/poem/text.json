@@ -49,8 +49,8 @@
   },
   {
     "name": "Angle",
-    "opening": "The machine remembers the angle.",
-    "closing": "I wait for you to say “again.”",
+    "opening": "What if I put it somewhere else?",
+    "closing": "Your wrist went to the old corner.",
     "action": "measure",
     "completion": "matched angle",
     "treatment": "machine"
@@ -82,15 +82,15 @@
   {
     "name": "Serve",
     "opening": "Morning, through the curtains.",
-    "closing": "Dust on my thumb.",
+    "closing": "All the way across.\nNo little knock on your side.",
     "action": "trace",
     "completion": "empty edge",
     "treatment": "glass"
   },
   {
     "name": "Angle",
-    "opening": "You wanted to see my hand.",
-    "closing": "Like this.",
+    "opening": "You used to lean in for this one.",
+    "closing": "All that room in the corner.",
     "action": "offer",
     "completion": "released trace",
     "treatment": "glass"
@@ -106,7 +106,7 @@
   {
     "name": "Hold",
     "opening": "",
-    "closing": "My hand was ready\nbefore I remembered.",
+    "closing": "I moved over\nto meet yours.",
     "still_closing": "I waited there.",
     "action": "wait",
     "completion": "unanswered beat",

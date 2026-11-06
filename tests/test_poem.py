@@ -11,7 +11,7 @@ from poem.shots import trajectory,shot_angle
 def tap(g):
     if g.mode in ('pong','glass'):
         key=pygame.K_SPACE
-    elif g.mode in ('cabinet','table','coin','coda','place_cup','return_glass'):
+    elif g.mode in ('window','cabinet','table','coin','coda','place_cup','return_glass'):
         key=pygame.K_e
     else:
         key=pygame.K_RETURN
@@ -53,9 +53,7 @@ def shooting_lane(g):
 
 def trace(g):
     tap(g)
-    for _ in range(330):
-        g.update(1/120,horizontal=1)
-    g.event(pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
+    until(g,lambda:g.phase!='playing')
 
 def play(g):
     if g.mode=='text':tap(g)
@@ -122,6 +120,7 @@ def test_entire_score(g):
     assert g.cup
     approach(g,470)
     until(g,lambda:g.cup_held)
+    approach(g,325);assert g.curtains_open
     tap(g)
     cues=[];g.cue=cues.append;g.update(.01);g.update(1)
     assert cues==['piano'] and g.mode=='ending'
@@ -134,7 +133,7 @@ def test_single_clock_and_unanswered_beat(g):
     start=g.elapsed;y=g.py
     marks=list(g.dust_trail)
     for _ in range(120):g.update(1/120,1,horizontal=-1)
-    assert g.finger_x<g.release_x-42 and marks==g.dust_trail
+    assert g.hand_returned
     assert g.elapsed-start==pytest.approx(1)
     assert g.py!=y and g.mode=='glass'
     g.update(.51)
@@ -304,17 +303,12 @@ def test_start_and_resume_buttons(g):
     g.event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN))
     assert not g.paused
 
-def test_glass_trace_has_no_ball(g):
-    g.index=11;g.enter();tap(g);tap(g);g.update(.4)
-    assert g.dust_trail and not g.balls
-    x=g.finger_x
-    g.update(2)
-    assert g.finger_x==x and g.mode=='glass'
-    for _ in range(330):g.update(1/120,horizontal=1)
-    g.event(pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
-    until(g,lambda:g.mode=='text')
-    tap(g);assert g.index==12 and g.mode=='place_cup'
-
+def test_corner_serve_moves_once(g):
+    g.index=11;g.enter();aim(g,280);tap(g)
+    g.update(.3)
+    assert g.roll_y<280 and g.roll_x>158
+    tap(g);until(g,lambda:g.mode=='text')
+    tap(g);assert g.index==12
 
 def test_memory_scene_draws_exactly_two_figures(g,monkeypatch):
     for index in (0,5):
@@ -373,32 +367,20 @@ def test_recorded_motion_survives_checkpoint(g):
     assert resumed.memories[0]==g.memories[0]
 
 
-def test_lifting_early_keeps_trace_recoverable(g):
-    g.index=10;g.enter();tap(g);tap(g)
-    g.update(.5,horizontal=1)
-    g.event(pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
-    assert g.phase=='ready' and g.mode=='glass'
-    previous=g.finger_x
-    g.update(2,horizontal=1)
-    assert g.finger_x==previous
-    trace(g)
-    assert g.mode=='text'
-
-def test_paused_glass_needs_fresh_contact(g):
-    g.index=14;g.enter();tap(g);tap(g)
-    for _ in range(320):g.update(1/120,horizontal=1)
-    g.event(pygame.event.Event(pygame.WINDOWFOCUSLOST))
-    for event in (pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE),
-                  pygame.event.Event(pygame.JOYBUTTONDOWN,button=1)):
-        g.event(event)
-    assert g.paused and g.mode=='glass' and g.phase=='playing'
-    tap_resume=pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN)
-    g.event(tap_resume)
-    x=g.finger_x
-    g.update(.3,horizontal=-1)
-    assert g.finger_x==x and not g.touching
+def test_morning_waits_for_space(g):
+    g.index=10;g.enter();tap(g);g.update(15)
+    assert g.phase=='ready'
     tap(g);g.event(pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
-    assert g.mode=='coda'
+    until(g,lambda:g.mode=='text')
+
+def test_paused_serve_stays_put(g):
+    g.index=14;g.enter();tap(g);tap(g);g.update(.3)
+    x=g.roll_x
+    g.event(pygame.event.Event(pygame.WINDOWFOCUSLOST))
+    g.event(pygame.event.Event(pygame.JOYBUTTONDOWN,button=1));g.update(3)
+    assert g.paused and g.roll_x==x
+    g.event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN))
+    until(g,lambda:g.mode=='coda')
 
 def test_still_hand_waits_without_drawing(g):
     g.index=13;g.enter();approach(g,745);trace(g)
@@ -415,12 +397,10 @@ def test_silent_hooks_survive_resume(g):
         g.event(pygame.event.Event(pygame.KEYDOWN,key=key))
     assert g.mode=='hooks' and not pygame.mixer.music.get_busy()
 
-def test_replay_is_one_exchange_back_to_choice(g):
+def test_leaving_never_restarts_recording(g):
     g.index=9;g.enter();g.resolve();g.update(.4,move=-1);g.action()
-    assert g.mode=='pong' and not g.balls and g.replaying
-    tap(g)
-    until(g,lambda:g.mode=='withdraw',12)
-    assert g.count==1 and g.x==745
+    assert g.mode=='withdraw' and g.x<745
+    until(g,lambda:g.mode=='dawn',5,move=lambda:-1)
 
 def test_two_tones_sound_at_their_own_contacts(g):
     g.index=8;g.enter();tap(g);aim(g,275)

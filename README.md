@@ -1,6 +1,6 @@
 # What Returns
 
-A short desktop game poem for Week 2, *A Feeling*. Two people share an arcade machine on Tuesday night. Later, its recording remembers the other person's wrist. In daylight, the player draws the shot by hand on the dark glass.
+A short desktop game poem for Week 2, *A Feeling*. Two people share an arcade machine on Tuesday night. Later, its recording remembers the other person's wrist. In daylight, the player serves into the empty half of the court.
 
 ## Play
 
@@ -11,9 +11,9 @@ On Windows, extract the complete release ZIP and open `WhatReturns/WhatReturns.e
 
 - Enter starts, advances a verse, and resumes after a pause. C on the title opens the saved passage.
 - Walk with A/D or Left/Right. E uses the object in reach. At the arcade machine, move the paddle with W/S or Up/Down and serve with Space.
-- At the end of the recording, E plays the point again. Walk left or hold Down/S to step away.
-- On the dark glass, hold Space and move in two dimensions to draw. Release to lift. At the last invitation, E leaves the glass.
-- On a controller, move with the left stick, use the south button to interact or touch, and the east button to leave the last invitation. Pull the stick back to step away from the machine.
+- At the end of the recording, walk left or hold Down/S to step away.
+- In morning, aim with Up/Down and tap Space to send a single remembered shot. At the last invitation, E leaves the glass.
+- On a controller, move with the left stick, use the south button to interact or serve, and the east button to leave the last invitation. Pull the stick back to step away from the machine.
 - Escape or the controller Start button pauses. M toggles sound, R reduces motion, and Q quits from pause. Packaged saves live in `%LOCALAPPDATA%/WhatReturns`.
 
 ## Edit and verify

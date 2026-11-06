@@ -76,6 +76,9 @@ class Poem(Simulation):
             pygame.draw.lines(c,(150,179,177),False,[hem(point) for point in
                               [(467,375),(473,390),(478,395),(477,503)]],2)
             pygame.draw.line(c,(55,91,104),hem((486,451)),hem((494,448)),2)
+            pygame.draw.rect(c,(128,110,101),(550,487,82,45))
+            pygame.draw.line(c,(173,156,142),(550,490),(632,490),3)
+            pygame.draw.polygon(c,(147,139,176),[(552,486),(580,477),(609,484),(602,499),(584,495)])
             self.poem_panel(HOOK,157,1)
 
     def poem_panel(self,content,y,loop=None,advance=True):
@@ -107,23 +110,12 @@ class Poem(Simulation):
         for start,end in (((182,186),(360,186)),((182,186),(182,295)),((268,186),(268,268))):
             pygame.draw.aaline(c,(87,101,100),start,end)
         self.art.presence(c,250,532,0,self.t,2,48,reduced=True)
-        if len(self.dust_trail)>1:
-            pygame.draw.lines(c,(132,149,145),False,self.dust_trail,5)
-            pygame.draw.aalines(c,(186,193,179),False,self.dust_trail)
-        if self.kind=='offer':
-            end=trajectory(345+self.angle*141/.88,self.angle)[-1]
-            pygame.draw.arc(c,(99,113,111),(int(end[0])-22,int(end[1])-7,32,12),.2,2.7,2)
-        point=(self.finger_x,self.py)
-        x,y=round(point[0]),round(point[1])
-        # A tapered wrist and bent thumb make contact legible at this scale.
-        pygame.draw.polygon(c,(96,135,145),[(x-8,y+91),(x+29,y+91),(x+28,y+66),(x+43,y+42),(x+41,y+27),(x+31,y+23),(x+27,y+33),(x+21,y+18),(x+11,y+16),(x+7,y+24),(x-7,y+23),(x-16,y+40),(x-10,y+65)])
-        pygame.draw.lines(c,(146,178,182),False,[(x+29,y+52),(x+31,y+34),(x+37,y+30)],2)
-        pygame.draw.line(c,(160,193,196),(x+2,y+38),(x,y+4),14)
-        pygame.draw.circle(c,(177,204,202),(x,y+3),7)
-        if self.touching:
-            pygame.draw.arc(c,(194,199,180),(x-13,y-7,27,16),.1,2.8,2)
-        elif self.crossed:
-            pygame.draw.line(c,(206,204,181),(x-4,y+2),(x+3,y),2)
+        # A remembered game on black glass. The lit near edge belongs to the player.
+        y=round(self.py/2)*2
+        pygame.draw.rect(c,(163,194,192),(142,y-26,6,52))
+        if not self.crossed:
+            x,by=(self.roll_x,self.roll_y) if self.phase=='playing' else (158,y)
+            pygame.draw.rect(c,(233,222,191),(round(x/2)*2-4,round(by/2)*2-4,8,8))
 
     def draw_balls(self):
         c=self.canvas
@@ -192,6 +184,9 @@ class Poem(Simulation):
         pygame.draw.polygon(c,STYLE['presence_inks'][1],[(953,cy-54),(958,cy-58),(961,cy-51),(961,cy+54),(955,cy+58),(953,cy+51)])
         for dx in (0,5):
             pygame.draw.line(c,p['sky'],(953,self.oy-self.cuff*9+dx),(960,self.oy-self.cuff*9+dx-3),2)
+        for x,dx in ((113,1),(986,-1)):
+            for y,dy in ((148,1),(543,-1)):
+                pygame.draw.lines(c,p['court_accent'],False,[(x+dx*12,y),(x,y),(x,y+dy*6)],2)
         self.draw_balls()
     def chamber(self,actors=True):
         self.art.background(self.canvas,self.loop,self.t,self.reduced)
@@ -206,6 +201,15 @@ class Poem(Simulation):
         else:self.art.chamber(self,actors=actors)
     def cup_scene(self):
         c=self.canvas;self.art.background(c,2,self.t,self.reduced);ink=self.accent
+        opening=min(1,self.age/.85) if self.curtains_open and self.mode=='text' else int(self.curtains_open)
+        width=round(75-64*opening)
+        for x in (233,415-width):
+            pygame.draw.rect(c,(159,173,168),(x,149,width,244))
+            pygame.draw.line(c,(182,193,184),(x+5,151),(x+5,391),2)
+        if opening:
+            light=pygame.Surface((W,H),pygame.SRCALPHA)
+            pygame.draw.polygon(light,(255,222,159,round(44*opening)),[(248,395),(398,395),(741,679),(361,679)])
+            c.blit(light,(0,0))
         self.art.table.draw(c,pygame.Rect(395,447,220,104),tilt=0)
         self.art.cabinet(c,(690,340,110,211),2)
         # The old cup ring stays: caring for oneself does not erase the other.
@@ -257,14 +261,14 @@ class Poem(Simulation):
 
             self.draw_button('Start',pygame.Rect(450,427,200,48))
             
-        elif mode in ('place_cup','setting_cup','collect_cup','return_glass','coda','ending','final') or mode=='text' and self.kind=='place_cup' or mode=='text' and self.next_mode in ('final','coda'):
+        elif mode in ('window','place_cup','setting_cup','collect_cup','return_glass','coda','ending','final') or mode=='text' and self.kind=='place_cup' or mode=='text' and self.next_mode in ('final','coda'):
             self.cup_scene()
             if mode=='ending':
                 self.text(CARD,550,166,36,serif=True)
                 
         elif mode=='withdraw':
             self.chamber()
-            self.text('A  replay the point     pull stick back to step away' if self.pad_hints else 'E  replay the point     ← / S  step away',550,592,18)
+            self.text('Hold the stick left · walk to the window' if self.pad_hints else 'Hold ← or A · walk away from the machine, toward the window',550,592,18)
         elif mode=='dawn':
             old=pygame.Surface((W,H))
             self.art.background(old,1,self.t,True)
@@ -285,17 +289,21 @@ class Poem(Simulation):
                 if self.loop==0:self.art.presence(c,near+62,551,1,self.t,self.loop,facing=-1,reach=.8,lean=.9 if at_control else .2,reduced=self.reduced)
             else:
                 self.court()
+            # Print the moving artwork on a coarse grid; set type at native resolution.
+            field=c.subsurface((112,145,878,406))
+            pixels=pygame.transform.scale(field,(439,203))
+            field.blit(pygame.transform.scale(pixels,field.get_size()),(0,0))
             if mode in ('pong','glass'):
                 self.instructions()
         else:
             self.chamber()
             if mode in ('table','coin','cabinet'):
                 self.object_prompt()
-        if mode in ('place_cup','return_glass','coda'):self.object_prompt()
+        if mode in ('window','place_cup','return_glass','coda'):self.object_prompt()
         if mode=='text':
             if self.kind=='offer' and self.next_mode=='resolved':
-                x=min(861,max(250,self.finger_x-68))
-                self.text(self.lines,x,self.py-48,25,(238,233,213),True)
+                x=min(861,max(250,815))
+                self.text(self.lines,x,self.roll_y-48,25,(238,233,213),True)
                 self.text('A to continue' if self.pad_hints else 'Enter to continue',903,510,14,(226,226,211))
             else:self.poem_panel(self.lines,174)
         if mode not in ('title','hooks','rupture','ending','restart','coin') and not (mode=='text' and self.next_mode=='restart'):
@@ -310,9 +318,12 @@ class Poem(Simulation):
         display.fill((0,0,0));display.blit(out,out.get_rect(center=(w//2,h//2)))
 
     def object_prompt(self):
-        if self.mode=='return_glass':
+        if self.mode=='window':
+            target=325
+            label='open the curtain'
+        elif self.mode=='return_glass':
             target=745
-            label='touch the glass'
+            label='take your side'
         elif self.mode in ('coda','place_cup'):
             target=470
             label='place the cup' if not self.cup else 'pick up your cup'
@@ -366,11 +377,6 @@ class Poem(Simulation):
             self.paused=True
             self.score.stop()
             return
-        if self.mode=='glass' and self.touching:
-            if (e.type==pygame.KEYUP and e.key==pygame.K_SPACE or
-                    e.type==pygame.JOYBUTTONUP and e.button==0):
-                self.lift_finger()
-                return
         if button==1 and self.mode=='glass' and self.kind=='last' and self.phase=='ready':
             self.finish()
             return
@@ -390,7 +396,7 @@ class Poem(Simulation):
             self.action()
         elif e.key==pygame.K_e and self.mode=='glass' and self.kind=='last' and self.phase=='ready':
             self.finish()
-        elif e.key==pygame.K_e and self.mode in ('cabinet','table','coin','coda','place_cup','return_glass','withdraw'):
+        elif e.key==pygame.K_e and self.mode in ('window','cabinet','table','coin','coda','place_cup','return_glass'):
             self.action()
         elif e.key==pygame.K_RETURN and self.mode in ('title','text','hooks','ending','morning_room'):
             self.action()
@@ -410,20 +416,20 @@ class Poem(Simulation):
             'angle':('Aim into the corner.',f'{targets} / 1 corner shot'),
             'fold':('Send it within their reach',''),
             'diagram':('The machine repeats the receiving position.',''),
-            'measure':('Repeat the shot from Tuesday',f'{targets} / 1 remembered shot'),
+            'measure':('Try a different serve',f'{targets} / 1 remembered shot'),
             'rally':('Stay for another exchange',f'{min(self.count,4)} / 4 returns'),
             'cross':('Serve once more',f'{min(self.count,3)} / 3 returns'),
             'repeat':('Play the recorded point',f'{min(self.count,3)} / 3 returns'),
             'voices':('Catch blue-green. Let purple pass.','Two tones · one answer'),
-            'trace':('Draw across the glass',''),
-            'offer':('Trace the corner shot',''),
+            'trace':('Serve into the quiet',''),
+            'offer':('Aim the corner shot',''),
             'footprint':('Send a shot through the pale opening',''),
-            'wait':('Carry the line to the far edge',''),
+            'wait':('Take your usual side',''),
             'last':('One more?',''),
         }
         title,progress=objectives[self.kind]
         if self.kind=='serve' and self.loop==1 and self.saw_cuff:title='There. That little lift.'
-        verse=self.kind=='offer' and self.touching
+        verse=self.kind=='offer' and self.phase=='playing'
         if verse:title=self.passage['opening']
         self.text(title,550,93,22 if verse else 19,color=self.accent,serif=verse)
         if self.phase=='playing' and self.kind=='rally':
@@ -431,8 +437,8 @@ class Poem(Simulation):
         
         if self.loop==2:
             if self.phase!='waiting':
-                hint='Stick moves hand · hold A to touch · release to lift' if self.pad_hints else 'Arrows move hand · hold Space to touch · release to lift'
-                if self.kind=='last' and self.phase=='ready':hint+=(' · B to leave' if self.pad_hints else ' · E to leave')
+                hint='Stick to move · A to serve' if self.pad_hints else '↑ / ↓ to move · Space to serve'
+                if self.kind=='last':hint+=(' · B to leave' if self.pad_hints else ' · E to leave')
                 self.text(hint,550,610,16)
         else:
             self.text('Stick moves paddle · A serves' if self.pad_hints else '↑ / ↓ or W / S move     Space serves',550,596,16)
