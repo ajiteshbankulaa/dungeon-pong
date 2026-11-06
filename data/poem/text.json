@@ -41,48 +41,48 @@
   },
   {
     "name": "Serve",
-    "opening": "I took my side again.",
-    "closing": "I knew where it was going.",
+    "opening": "For a moment,\nthere was your wrist.",
+    "closing": "I moved closer\nto hear the little knock.",
     "action": "serve",
     "completion": "exchange",
     "treatment": "machine"
   },
   {
     "name": "Angle",
-    "opening": "What if I put it somewhere else?",
-    "closing": "Your wrist went to the old corner.",
+    "opening": "Look.\nI'm putting it somewhere else.",
+    "closing": "Your wrist went to the old corner.\nYou would have followed me.",
     "action": "measure",
     "completion": "matched angle",
     "treatment": "machine"
   },
   {
     "name": "Between",
-    "opening": "Miss one for me.",
-    "closing": "I liked your excuse.",
+    "opening": "Miss one for me.\nPlease.",
+    "closing": "Once, you missed\nbecause you were watching my hand.",
     "action": "diagram",
     "completion": "level shot",
     "treatment": "machine"
   },
   {
     "name": "Hold",
-    "opening": "Two tones in the speaker.",
-    "closing": "I played my half.\nYours played without you.",
+    "opening": "I let your note play.",
+    "closing": "It came on time.\nIt would have come without me.",
     "action": "voices",
     "completion": "answered tone",
     "treatment": "machine"
   },
   {
     "name": "Again?",
-    "opening": "One more?",
-    "closing": "I wanted another game.\nI wanted the quiet, too.",
+    "opening": "I could stay here all night.",
+    "closing": "It remembered how you moved.\nIt couldn't notice I was here.",
     "action": "repeat",
     "completion": "bus replay",
     "treatment": "machine"
   },
   {
     "name": "Serve",
-    "opening": "Morning, through the curtains.",
-    "closing": "All the way across.\nNo little knock on your side.",
+    "opening": "The room was still here.",
+    "closing": "I waited for the little knock.",
     "action": "trace",
     "completion": "empty edge",
     "treatment": "glass"
@@ -90,7 +90,7 @@
   {
     "name": "Angle",
     "opening": "You used to lean in for this one.",
-    "closing": "All that room in the corner.",
+    "closing": "I wanted to show you\nsomething you hadn't seen.",
     "action": "offer",
     "completion": "released trace",
     "treatment": "glass"
@@ -98,7 +98,7 @@
   {
     "name": "Between",
     "opening": "",
-    "closing": "I set out one cup.\nMy hand went back for yours.",
+    "closing": "I set out one cup.\nThen reached for yours.",
     "action": "place_cup",
     "completion": "cup placed",
     "treatment": "glass"
@@ -106,15 +106,15 @@
   {
     "name": "Hold",
     "opening": "",
-    "closing": "I moved over\nto meet yours.",
-    "still_closing": "I waited there.",
+    "closing": "I was ready for you.\nI still was.",
+    "still_closing": "I knew.\nI waited anyway.",
     "action": "wait",
     "completion": "unanswered beat",
     "treatment": "glass"
   },
   {
     "name": "Again?",
-    "opening": "Again?",
+    "opening": "I could miss you\naway from this machine.",
     "closing": "",
     "action": "last",
     "completion": "empty edge",

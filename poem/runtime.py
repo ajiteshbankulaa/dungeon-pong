@@ -174,7 +174,7 @@ class Poem:
             self.mode_to('setting_cup')
         elif self.mode=='window' and abs(self.x-325)<65:
             self.curtains_open=True
-            self.poem('The tea was still warm.','final')
+            self.poem('I still wanted you here.\nThe tea was still warm.','final')
         elif self.mode=='hooks':self.x=545;self.mode_to('coin')
         elif self.mode=='coin' and abs(self.x-745)<65:
             self.reset()
