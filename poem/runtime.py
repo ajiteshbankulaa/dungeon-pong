@@ -179,7 +179,7 @@ class Poem:
         elif self.mode=='coin' and abs(self.x-745)<65:
             self.reset()
             self.cue('thud')
-            self.mode_to('quarter')
+            self.poem(COIN,'restart')
         elif self.mode=='restart':self.index=5;self.enter()
         elif self.mode=='cabinet' and abs(self.x-745)<65:self.mode_to('pong')
         elif self.mode=='table' and abs(self.x-470)<60:
@@ -220,9 +220,6 @@ class Poem:
             if self.age>=3.5:self.mode_to('hooks')
             return
         if self.mode in ('hooks','title','ending'):return
-        if self.mode=='quarter':
-            if self.age>=1.35:self.poem(COIN,'restart')
-            return
         if self.mode=='dawn':
             if self.age>=3:self.poem(PASSAGES[10]['opening'],'glass')
             return

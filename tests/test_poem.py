@@ -108,9 +108,6 @@ def test_entire_score(g):
             g.update(3.49);tap(g);assert g.mode=='rupture'
             g.update(.011);assert g.mode=='hooks'
             tap(g);approach(g,745)
-            assert g.mode=='quarter'
-            tap(g);assert g.mode=='quarter'
-            until(g,lambda:g.mode=='text')
             assert 'quarter' in g.lines
             tap(g);g.update(.01)
         elif i==9:
