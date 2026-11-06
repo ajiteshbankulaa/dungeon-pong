@@ -400,6 +400,11 @@ class Poem(Simulation):
             self.action()
 
     def resume_score(self):
+        if self.score.layer:
+            if self.score.layer_leaving or self.score.layer_fade<(4.5 if self.score.layer=='hope' else 2.2):
+                self.score.enter(self.loop,self.muted)
+            self.score.start_layer(self.score.layer,self.muted)
+            return
         if self.mode not in ('title','rupture','hooks','coin','restart','final','ending') and not (self.mode=='text' and self.next_mode=='restart'):
             self.score.enter(self.loop,self.muted)
             if self.mode=='withdraw' and self.score.playing:pygame.mixer.music.set_volume(.38*(1-self.back))

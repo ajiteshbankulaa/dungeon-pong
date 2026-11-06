@@ -68,6 +68,13 @@ class Score:
         self.playing=False
         self.offset=0.
         self.phrase=0
+        self.layer=None
+        self.layer_time=0.
+        self.layer_playing=False
+        self.layer_fade=0.
+        self.layer_leaving=False
+        self.layer_sounds={}
+        if self.bank:pygame.mixer.set_reserved(1)
     def stop(self):
         if not self.bank:return
         if self.playing:
@@ -76,15 +83,23 @@ class Score:
         pygame.mixer.music.stop()
         pygame.mixer.stop()
         self.playing=False
+        self.layer_playing=False
     def enter(self,act,mute):
         if not self.bank:return
+        if act in (3,4):
+            self.start_layer('winter' if act==3 else 'hope',mute)
+            return
         if act!=self.act:
-            self.stop()
+            if self.layer_playing:
+                self.layer_leaving=True
+                self.layer_fade=0.
+            else:
+                self.stop()
+                self.layer=None
             self.act=act
             self.offset=0.
             self.phrase=0
         if mute:return
-        pygame.mixer.Channel(0).stop()
         if self.playing:return
         name=('tuesday','reconstruction','morning')[act]
         pygame.mixer.music.load(str(AUDIO/(name+'-v3.ogg')))
@@ -92,6 +107,28 @@ class Score:
         duration=json.loads((AUDIO/'loop-durations.json').read_text())[name]
         pygame.mixer.music.play(loops=-1,start=self.offset%duration,fade_ms=900)
         self.playing=True
+    def start_layer(self,name,mute):
+        if not self.bank:return
+        if name!=self.layer:
+            if self.layer_playing:pygame.mixer.Channel(0).stop()
+            self.layer=name
+            self.layer_time=0.
+            self.layer_fade=0.
+            self.layer_leaving=False
+        if mute or self.layer_playing:return
+        if name not in self.layer_sounds:
+            self.layer_sounds[name]=pygame.mixer.Sound(str(AUDIO/(name+'-v4.ogg')))
+        original=self.layer_sounds[name]
+        rate,_,channels=pygame.mixer.get_init()
+        raw=original.get_raw()
+        frame=int(self.layer_time*rate)%(len(raw)//(channels*2))
+        cut=frame*channels*2
+        sound=pygame.mixer.Sound(buffer=raw[cut:]+raw[:cut]) if cut else original
+        channel=pygame.mixer.Channel(0)
+        channel.set_volume(0)
+        channel.play(sound,loops=-1)
+        self.layer_playing=True
+
     def cue(self,name,mute=False):
         if not self.bank or mute:return
         sound=self.bank.get(name)
@@ -110,5 +147,23 @@ class Score:
             channel=pygame.mixer.find_channel()
             if channel:channel.play(sound)
     def tick(self,dt,act,mute):
-        # The recorded movement continues across rooms. Actions add its responses.
-        pass
+        if mute or not self.layer_playing:return
+        self.layer_time+=dt
+        self.layer_fade+=dt
+        channel=pygame.mixer.Channel(0)
+        if self.layer_leaving:
+            u=min(1,self.layer_fade/2.4)
+            channel.set_volume(.38*math.cos(u*math.pi/2))
+            if u>=1:
+                channel.stop()
+                self.layer_playing=False
+                self.layer=None
+            return
+        u=min(1,self.layer_fade/(4.5 if self.layer=='hope' else 2.2))
+        channel.set_volume((.48 if self.layer=='hope' else .38)*math.sin(u*math.pi/2))
+        if self.playing:
+            level=.35 if self.layer=='hope' else (.48,.38,.35)[self.act]
+            pygame.mixer.music.set_volume(level*math.cos(u*math.pi/2))
+            if u>=1:
+                pygame.mixer.music.stop()
+                self.playing=False

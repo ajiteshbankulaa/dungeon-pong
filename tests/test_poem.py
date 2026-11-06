@@ -103,8 +103,7 @@ def test_entire_score(g):
         play(g)
         if i==4:
             assert g.mode=='rupture'
-            assert not pygame.mixer.get_busy()
-            assert not pygame.mixer.music.get_busy()
+            assert g.score.layer=='winter' and g.score.layer_playing
             g.update(3.49);tap(g);assert g.mode=='rupture'
             g.update(.011);assert g.mode=='hooks'
             tap(g);approach(g,745)
@@ -391,11 +390,11 @@ def test_still_hand_waits_without_drawing(g):
     g.update(.02)
     assert g.lines==g.passage['still_closing']
 
-def test_silent_hooks_survive_resume(g):
+def test_winter_bridge_survives_resume(g):
     g.index=4;g.enter();g.resolve();g.update(3.51)
     for key in (pygame.K_ESCAPE,pygame.K_RETURN):
         g.event(pygame.event.Event(pygame.KEYDOWN,key=key))
-    assert g.mode=='hooks' and not pygame.mixer.music.get_busy()
+    assert g.mode=='hooks' and g.score.layer_playing
 
 def test_leaving_never_restarts_recording(g):
     g.index=9;g.enter();g.resolve();g.update(.4,move=-1);g.action()
@@ -410,3 +409,30 @@ def test_two_tones_sound_at_their_own_contacts(g):
     assert cues==['note0'] and not g.crossed
     until(g,lambda:g.mode=='text')
     assert cues==['note0','hollow']
+
+
+def test_curtain_crossfade_survives_final_card(g):
+    g.index=14;g.enter();g.cup=True;g.cup_held=True;g.x=325;g.mode_to('window')
+    g.action()
+    assert g.score.layer=='hope' and g.score.layer_playing
+    g.update(1)
+    assert g.score.playing and g.score.layer_playing
+    tap(g);g.update(.01)
+    assert g.mode=='ending' and g.score.layer_playing
+    g.update(5)
+    assert not g.score.playing and g.score.layer_playing
+    g.event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_ESCAPE))
+    g.event(pygame.event.Event(pygame.KEYDOWN,key=pygame.K_RETURN))
+    assert g.score.layer_playing
+
+def test_winter_overlaps_tuesday_then_reconstruction(g):
+    g.index=4;g.enter();g.resolve()
+    assert g.score.playing and g.score.layer_playing
+    g.update(1)
+    assert g.score.playing and g.score.layer_playing
+    g.update(1.3)
+    assert not g.score.playing and g.score.layer_playing
+    g.index=5;g.enter()
+    assert g.score.playing and g.score.layer_leaving
+    g.update(2.5)
+    assert g.score.playing and not g.score.layer_playing

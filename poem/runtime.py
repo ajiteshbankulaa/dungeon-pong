@@ -146,7 +146,7 @@ class Poem:
 
     def resolve(self):
         if self.index==4:
-            self.score.stop();pygame.event.clear([pygame.KEYDOWN,pygame.JOYBUTTONDOWN])
+            self.score.enter(3,self.muted);pygame.event.clear([pygame.KEYDOWN,pygame.JOYBUTTONDOWN])
             self.mode_to('rupture')
         elif self.index==9:
             self.x=745;self.withdraw_start=745.;self.mode_to('withdraw')
@@ -174,6 +174,7 @@ class Poem:
             self.mode_to('setting_cup')
         elif self.mode=='window' and abs(self.x-325)<65:
             self.curtains_open=True
+            self.score.enter(4,self.muted)
             self.poem('I still wanted you here.\nThe tea was still warm.','final')
         elif self.mode=='hooks':self.x=545;self.mode_to('coin')
         elif self.mode=='coin' and abs(self.x-745)<65:
@@ -216,8 +217,11 @@ class Poem:
     def update(self,dt,move=0,back=False,horizontal=0):
         if self.paused:return
         self.t+=dt;self.age+=dt
+        self.score.tick(dt,self.loop,self.muted)
         if self.mode=='rupture':
-            if self.age>=3.5:self.mode_to('hooks')
+            if self.age>=3.5:
+                self.mode_to('hooks')
+                self.score.enter(3,self.muted)
             return
         if self.mode in ('hooks','title','ending'):return
         if self.mode=='dawn':
@@ -246,10 +250,8 @@ class Poem:
                 self.mode_to('pong')
             return
         if self.mode=='final':
-            self.score.stop();self.mode_to('ending');self.cue('piano');self.save(True);return
+            self.mode_to('ending');self.cue('piano');self.save(True);return
         if self.mode=='restart':self.index=5;self.enter();return
-        if self.mode not in ('coin','restart') and not (self.mode=='text' and self.next_mode=='restart'):
-            self.score.tick(dt,self.loop,self.muted)
         if self.mode in ('cabinet','table','coin','coda','place_cup','return_glass','window'):
             self.x=max(220,min(860,self.x+move*190*dt))
             if move:self.facing=1 if move>0 else -1
