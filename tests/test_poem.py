@@ -56,6 +56,7 @@ def trace(g):
     until(g,lambda:g.phase!='playing')
 
 def play(g):
+    index=g.index
     if g.mode=='text':tap(g)
     if g.mode=='cabinet':approach(g,745)
     if g.mode=='table':
@@ -70,6 +71,7 @@ def play(g):
         return
     if g.mode=='glass':
         trace(g)
+        if g.index!=index:return
         if g.kind=='last':
             assert g.mode=='coda'
         else:
@@ -93,7 +95,9 @@ def play(g):
             if g.loop==2 or not g.balls:return 0
             return max(-1,min(1,(g.balls[0]['y']-g.py)/20))
         until(g,lambda:g.mode=='text',90,follow)
-    assert g.lines==g.passage['closing']
+    if g.index!=index:return
+    closing='same_closing' if g.same_corner else 'closing'
+    assert g.lines==g.passage[closing]
     tap(g)
 
 def test_entire_score(g):
@@ -247,6 +251,9 @@ def test_complete_rooms_reveal_text_without_input(g):
     for index in (0,1,2,3,4,5,6,7,8,9):
         g.index=index;g.enter();g.mode_to('pong')
         g.aftermath()
+        if index==7:
+            assert g.index==8
+            continue
         assert g.mode=='text' and g.lines==g.passage['closing']
         g.draw()
         before=g.index
@@ -370,7 +377,8 @@ def test_morning_waits_for_space(g):
     g.index=10;g.enter();tap(g);g.update(15)
     assert g.phase=='ready'
     tap(g);g.event(pygame.event.Event(pygame.KEYUP,key=pygame.K_SPACE))
-    until(g,lambda:g.mode=='text')
+    until(g,lambda:g.index==11)
+    assert g.mode=='glass' and g.phase=='ready'
 
 def test_paused_serve_stays_put(g):
     g.index=14;g.enter();tap(g);tap(g);g.update(.3)
@@ -436,3 +444,23 @@ def test_winter_overlaps_tuesday_then_reconstruction(g):
     assert g.score.playing and g.score.layer_leaving
     g.update(2.5)
     assert g.score.playing and not g.score.layer_playing
+
+@pytest.mark.parametrize('y',[345,485])
+def test_purple_finishes_once_after_blue_miss(g,y):
+    g.index=8;g.enter();tap(g);aim(g,y)
+    cues=[];g.cue=cues.append;tap(g)
+    until(g,lambda:g.mode=='text')
+    assert cues==['hollow'] and not g.answered and g.crossed
+
+def test_morning_held_direction_is_not_a_new_reach(g):
+    g.index=13;g.enter();approach(g,745);tap(g)
+    until(g,lambda:g.roll_x>960)
+    while not g.crossed:g.update(1/120,1)
+    for _ in range(190):g.update(1/120,1)
+    assert g.lines==PASSAGES[13]['still_closing']
+
+@pytest.mark.parametrize('y,key',[(345,'same_closing'),(310,'closing')])
+def test_angle_line_follows_actual_endpoint(g,y,key):
+    g.angle=0;g.index=6;g.enter();tap(g);aim(g,y);tap(g)
+    until(g,lambda:g.mode=='text')
+    assert g.lines==g.passage[key]

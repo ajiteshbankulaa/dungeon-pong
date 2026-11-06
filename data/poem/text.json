@@ -18,7 +18,7 @@
   {
     "name": "Between",
     "opening": "",
-    "closing": "Straight back.\nNeither of us was keeping score.",
+    "closing": "Neither of us was keeping score.",
     "action": "fold",
     "completion": "level shot",
     "treatment": "tuesday"
@@ -34,7 +34,7 @@
   {
     "name": "Again?",
     "opening": "“One more?”",
-    "closing": "I said yes.",
+    "closing": "",
     "action": "cross",
     "completion": "center",
     "treatment": "tuesday"
@@ -42,31 +42,32 @@
   {
     "name": "Serve",
     "opening": "For a moment,\nthere was your wrist.",
-    "closing": "I moved closer\nto hear the little knock.",
+    "closing": "There. That little knock.",
     "action": "serve",
     "completion": "exchange",
     "treatment": "machine"
   },
   {
     "name": "Angle",
-    "opening": "Look.\nI'm putting it somewhere else.",
-    "closing": "Your wrist went to the old corner.\nYou would have followed me.",
+    "opening": "Watch this one.",
+    "closing": "Your wrist went to the old corner.",
     "action": "measure",
     "completion": "matched angle",
-    "treatment": "machine"
+    "treatment": "machine",
+    "same_closing": "The same corner.\nThe same little lift."
   },
   {
     "name": "Between",
     "opening": "Miss one for me.\nPlease.",
-    "closing": "Once, you missed\nbecause you were watching my hand.",
+    "closing": "",
     "action": "diagram",
     "completion": "level shot",
     "treatment": "machine"
   },
   {
     "name": "Hold",
-    "opening": "I let your note play.",
-    "closing": "It came on time.\nIt would have come without me.",
+    "opening": "Two tones in the speaker.",
+    "closing": "Right on time.",
     "action": "voices",
     "completion": "answered tone",
     "treatment": "machine"
@@ -81,8 +82,8 @@
   },
   {
     "name": "Serve",
-    "opening": "The room was still here.",
-    "closing": "I waited for the little knock.",
+    "opening": "Morning, through the curtains.",
+    "closing": "",
     "action": "trace",
     "completion": "empty edge",
     "treatment": "glass"
@@ -107,14 +108,14 @@
     "name": "Hold",
     "opening": "",
     "closing": "I was ready for you.\nI still was.",
-    "still_closing": "I knew.\nI waited anyway.",
+    "still_closing": "I stayed there.",
     "action": "wait",
     "completion": "unanswered beat",
     "treatment": "glass"
   },
   {
     "name": "Again?",
-    "opening": "I could miss you\naway from this machine.",
+    "opening": "Again?",
     "closing": "",
     "action": "last",
     "completion": "empty edge",

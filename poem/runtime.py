@@ -67,6 +67,7 @@ class Poem:
         self.finger_x=150.
         self.touching=False
         self.hand_returned=False
+        self.same_corner=False
         self.release_x=150.
         self.bus_age=None
         self.saw_cuff=False
@@ -99,7 +100,7 @@ class Poem:
         self.reset();self.save();self.score.enter(self.loop,self.muted)
         if self.index==12:self.x=745
         elif self.index==13:self.x=470
-        elif self.loop<2:self.x=455
+        elif self.loop<2:self.x=373
         opening=self.passage['opening']
         if self.index==0 and self.progress['completed']:opening='I remember you letting me serve first.'
         if self.loop==2:
@@ -123,7 +124,13 @@ class Poem:
         closing=self.passage['closing']
         if self.kind=='wait' and not self.hand_returned:
             closing=self.passage['still_closing']
-        if closing:
+        if self.kind=='measure' and self.same_corner:
+            closing=self.passage['same_closing']
+        if self.kind=='cross':
+            self.lines=''
+            self.next_mode='resolved'
+            self.mode_to('text')
+        elif closing:
             self.poem(closing,'resolved')
         else:
             self.resolve()
@@ -134,6 +141,7 @@ class Poem:
         if self.loop==2 and self.kind=='wait':
             self.phase='waiting'
             self.phase_age=0.
+            self.exit_direction=self.move_direction
             self.receiving_y=self.py
         else:
             self.finish()
@@ -175,7 +183,7 @@ class Poem:
         elif self.mode=='window' and abs(self.x-325)<65:
             self.curtains_open=True
             self.score.enter(4,self.muted)
-            self.poem('I still wanted you here.\nThe tea was still warm.','final')
+            self.poem('The tea was still warm.','final')
         elif self.mode=='hooks':self.x=545;self.mode_to('coin')
         elif self.mode=='coin' and abs(self.x-745)<65:
             self.reset()
@@ -272,12 +280,17 @@ class Poem:
                 self.reset();self.save();self.score.enter(2,self.muted)
                 self.mode_to('dawn')
         if self.mode not in ('pong','glass'):return
+        previous_y=self.py
+        self.move_direction=(move>.2)-(move<-.2)
         self.py=max(204,min(486,self.py+move*STYLE['paddle_speed']*dt))
         self.impact=max(0,self.impact-dt)
         self.elapsed+=dt
         self.phase_age+=dt
         if self.phase=='waiting':
-            if abs(self.py-self.receiving_y)>=22:self.hand_returned=True
+            if self.exit_direction and self.move_direction!=self.exit_direction:
+                self.exit_direction=0
+                self.receiving_y=previous_y
+            if not self.exit_direction and abs(self.py-self.receiving_y)>=22:self.hand_returned=True
             if self.phase_age>=1.5:self.finish()
             return
         if self.phase!='playing':
@@ -335,6 +348,8 @@ class Poem:
                 self.aftermath(.8);return
             if self.kind in ('angle','measure') and b['vx']>0 and b['x']>=920:
                 if b.get('corner') or self.kind=='measure' or abs(b['y']-self.target_y)<min(90,42+self.attempts*7):
+                    if self.kind=='measure' and not b.get('corner'):
+                        self.same_corner=abs(b['y']-self.machine_target)<=58
                     b['corner']=True
                     if b['x']<982:continue
                     if self.kind=='angle':
@@ -346,9 +361,10 @@ class Poem:
             if self.kind=='voices':
                 if b['voice']==1 and b['x']>=980:self.balls.remove(b);self.crossed=True;self.cue('hollow')
                 elif b['voice']==0 and b['x']<=150:
-                    if abs(b['y']-self.py)<=66:self.answered=True;self.cue('note0');self.balls.remove(b)
-                    else:self.crossed=False;self.answered=False;self.retry('Catch the blue-green tone. Let the other pass.');return
-                if self.answered and self.crossed:self.aftermath(.8)
+                    self.answered=abs(b['y']-self.py)<=66
+                    if self.answered:self.cue('note0')
+                    self.balls.remove(b)
+                if not self.balls:self.aftermath()
                 continue
             if b['vx']>0 and b['x']>=950 and abs(b['y']-self.oy)<66:
                 return_y=(self.py+45-b['y'])*.47

@@ -173,14 +173,16 @@ class Poem(Simulation):
                 end=points[-1]
                 pygame.draw.circle(c,p['court_ink'],(round(end[0]),round(end[1])),4,1)
         if self.kind=='voices':
+            if self.crossed:
+                pygame.draw.circle(c,STYLE['presence_inks'][1],(976,415),7,1)
             for y,col in zip((275,415),STYLE['presence_inks']):
                 pygame.draw.line(c,col,(500,y),(550,y),1)
         pygame.draw.polygon(c,STYLE['presence_inks'][0],[(140,self.py-54),(145,self.py-58),(148,self.py-51),(148,self.py+54),(142,self.py+58),(140,self.py+51)])
         pygame.draw.line(c,(205,229,217),(141,self.py-48),(141,self.py+46))
-        cy=self.oy-self.cuff*9
+        cy=self.oy-self.cuff*12
         pygame.draw.polygon(c,STYLE['presence_inks'][1],[(953,cy-54),(958,cy-58),(961,cy-51),(961,cy+54),(955,cy+58),(953,cy+51)])
         for dx in (0,5):
-            pygame.draw.line(c,p['sky'],(953,self.oy-self.cuff*9+dx),(960,self.oy-self.cuff*9+dx-3),2)
+            pygame.draw.line(c,(231,221,216),(951,cy+dx),(962,cy+dx-3),3)
         for x,dx in ((113,1),(986,-1)):
             for y,dy in ((148,1),(543,-1)):
                 pygame.draw.lines(c,p['court_accent'],False,[(x+dx*12,y),(x,y),(x,y+dy*6)],2)
@@ -303,7 +305,8 @@ class Poem(Simulation):
                 x=min(861,max(250,815))
                 self.text(self.lines,x,self.roll_y-48,25,(238,233,213),True)
                 self.text('A to continue' if self.pad_hints else 'Enter to continue',903,510,14,(226,226,211))
-            else:self.poem_panel(self.lines,174)
+            elif self.lines:self.poem_panel(self.lines,174)
+            else:self.text('A to continue' if self.pad_hints else 'Enter to continue',550,590,16)
         if mode not in ('title','hooks','rupture','ending','restart','coin') and not (mode=='text' and self.next_mode=='restart'):
             self.text(f'{self.loop+1:02}  /  {self.passage["name"]}',70,38,14,self.accent,center=False)
         if self.paused:
@@ -423,7 +426,7 @@ class Poem(Simulation):
             'rally':('Stay for another exchange',f'{min(self.count,4)} / 4 returns'),
             'cross':('Serve once more',f'{min(self.count,3)} / 3 returns'),
             'repeat':('Play the recorded point',f'{min(self.count,3)} / 3 returns'),
-            'voices':('Catch blue-green. Let purple pass.','Two tones · one answer'),
+            'voices':('Your note is blue-green.','Two tones · one answer'),
             'trace':('Serve into the quiet',''),
             'offer':('Aim the corner shot',''),
             'footprint':('Send a shot through the pale opening',''),
