@@ -133,25 +133,26 @@ class Poem(Simulation):
                 x,y=trail[j]
                 pygame.draw.circle(c,tint,(round(x),round(y)),max(1,round(strength*4)))
             x,y=round(b['x']),round(b['y'])
-            diamond=[(x,y-6),(x+6,y),(x,y+6),(x-6,y)]
+            diamond=[(x-3,y-3),(x+3,y-3),(x+3,y+3),(x-3,y+3)]
             pygame.draw.polygon(c,tone,diamond,2 if b['voice']==1 else 0)
             pygame.draw.aalines(c,tone,True,diamond)
 
     def court(self):
         c=self.canvas;p=PALETTES[self.loop]
-        self.art.background(c,self.loop,self.t,self.reduced)
+        c.fill((25,25,29) if self.loop==0 else (21,24,32))
         if self.bus_age is not None and self.bus_age<1.6:
             u=self.bus_age/1.6
             tone=round(76+68*math.sin(math.pi*u))
             pygame.draw.line(c,(tone,tone-7,tone-24),(232+int(140*u),139),(259+int(140*u),139),3)
         # A translucent, sharply readable playing plane floats in the landscape.
         field=pygame.Surface((W,H),pygame.SRCALPHA)
-        pygame.draw.rect(field,(*p['court'],239),(112,145,878,402),border_radius=5)
+        pygame.draw.rect(field,(*p['court'],255),(112,145,878,402))
         pygame.draw.polygon(field,(*p['court'],250),[(112,547),(990,547),(974,556),(128,556)])
+        # The court is an unframed interval between two people.
         c.blit(field,(0,0))
-        pygame.draw.line(c,p['court_accent'],(120,147),(982,147))
-        pygame.draw.line(c,p['court_accent'],(120,543),(982,543))
-        for y in range(155,536,19):pygame.draw.line(c,p['shade'],(550,y),(550,y+2))
+        pygame.draw.line(c,p['shade'],(505,147),(595,147))
+        pygame.draw.line(c,p['shade'],(505,543),(595,543))
+        for y in (326,345,364):pygame.draw.rect(c,p['shade'],(549,y,2,2))
         aiming=self.kind in ('angle','measure','fold','diagram')
         obstacles=()
         if self.kind in ('fold','diagram'):
@@ -291,7 +292,7 @@ class Poem(Simulation):
                 self.court()
             # Print the moving artwork on a coarse grid; set type at native resolution.
             field=c.subsurface((112,145,878,406))
-            pixels=pygame.transform.scale(field,(439,203))
+            pixels=pygame.transform.scale(field,(293,135))
             field.blit(pygame.transform.scale(pixels,field.get_size()),(0,0))
             if mode in ('pong','glass'):
                 self.instructions()

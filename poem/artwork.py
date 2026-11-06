@@ -30,12 +30,11 @@ class Artwork:
         surface.fill(p['sky'])
         wall=(45,49,53) if loop==0 else (35,39,48) if loop==1 else (224,227,218)
         surface.fill(wall)
-        window=pygame.transform.smoothscale(self.backgrounds[loop],(176,238))
-        surface.blit(window,(236,152))
-        trim=(103,103,94) if loop<2 else (161,173,164)
-        pygame.draw.rect(surface,trim,(230,146,188,250),3)
-        pygame.draw.line(surface,trim,(324,148),(324,394),3)
-        pygame.draw.line(surface,trim,(232,280),(416,280),2)
+        # A single lit aperture locates the room without describing a landscape.
+        light=(205,170,117) if loop==0 else (111,125,144) if loop==1 else (242,232,199)
+        pygame.draw.polygon(surface,light,[(268,186),(345,162),(378,185),(366,377),(255,377)])
+        pygame.draw.line(surface,wall,(313,172),(313,377),5)
+        pygame.draw.line(surface,wall,(255,274),(378,274),5)
         # The second cup has a stable place the hand can return to.
         shelf=(97,105,107) if loop<2 else (143,157,150)
         pygame.draw.line(surface,shelf,(505,395),(570,395),3)
@@ -64,8 +63,12 @@ class Artwork:
             tone = mix((42,48,70), (142,178,200) if which==0 else (155,150,198), .55 if side < 0 else .82)
             pygame.draw.lines(body, tone, False, [(hip[0]+side*5,153+crouch*28), (knee[0]+crouch*10,knee[1]+crouch*8), foot], 8)
             pygame.draw.line(body, tone, foot, (foot_x+6,foot[1]), 5)
-        torso = pygame.transform.rotozoom(self.torsos[which], breath*.35 + stride*1.2+lean*4, 1)
-        body.blit(torso, torso.get_rect(midbottom=(90+stride*2,165+breath+crouch*28)))
+        tone=(119,177,186) if which==0 else (168,155,196)
+        # Anonymous figures are assembled from a few stepped ink shapes.
+        pygame.draw.polygon(body,tone,[(78,30),(96,23),(109,37),(102,58),(80,60),(71,44)],4)
+        pygame.draw.polygon(body,tone,[(78,72),(99,68),(109,102),(102,147),(74,154),(66,124)])
+        pygame.draw.line(body,tone,(78,81),(63,119),8)
+        pygame.draw.line(body,tone,(101,81),(116,114),8)
         if reach:
             tone=(164,217,224) if which==0 else (209,206,245)
             elbow=(120,112-reach*14+crouch*75)
@@ -74,6 +77,8 @@ class Artwork:
         image = pygame.transform.smoothscale(body,(round(180*scale),round(240*scale)))
         if facing < 0:
             image=pygame.transform.flip(image, True, False)
+        stamp=pygame.transform.scale(image,(max(1,image.get_width()//2),max(1,image.get_height()//2)))
+        image=pygame.transform.scale(stamp,image.get_size())
         image.set_alpha(round(opacity))
         light_x,light_y=324,240
         spread=max(-170,min(220,(x-light_x)*.38))
