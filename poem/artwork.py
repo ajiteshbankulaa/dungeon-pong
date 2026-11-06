@@ -23,20 +23,14 @@ class Artwork:
     def background(self,surface,loop,t,reduced=False,loss=False):
         p=PALETTES[loop]
         surface.fill(p['sky'])
-        # The same window divides one shared light into two familiar places.
-        light=((221,183,143),(115,137,157),(245,238,207))[loop]
-        pane=pygame.Surface((1100,680),pygame.SRCALPHA)
-        pygame.draw.rect(pane,(*light,165 if loop<2 else 230),(244,154,162,239),border_radius=76)
-        pygame.draw.rect(pane,(*light,165 if loop<2 else 230),(244,235,162,158))
-        pygame.draw.line(pane,(*p['sky'],255),(325,154),(325,393),7)
-        surface.blit(pane,(0,0))
+        # A window drawn once: small imperfections belong to the room, never to a shake effect.
+        light=((172,146,119),(98,115,135),(239,232,204))[loop]
+        pygame.draw.polygon(surface,light,[(243,155),(406,158),(404,392),(245,394)])
+        pygame.draw.aalines(surface,p['shade'],True,[(240,152),(409,156),(407,397),(241,396)])
+        pygame.draw.line(surface,p['sky'],(325,157),(323,393),4)
+        pygame.draw.line(surface,p['sky'],(245,273),(404,276),3)
         pygame.draw.rect(surface,p['floor'],(0,552,1100,128))
-        beam=pygame.Surface((1100,680),pygame.SRCALPHA)
-        for x in (244,332):
-            # Two slanted pools belong to one window; morning has room to enter.
-            color=(*light,16 if loop==1 else 25 if loop==0 else 49)
-            pygame.draw.polygon(beam,color,[(x,393),(x+72,393),(x+340,680),(x+175,680)])
-        surface.blit(beam,(0,0))
+        pygame.draw.aalines(surface,p['shade'],False,[(170,552),(483,551),(804,553),(945,551)])
         pygame.draw.line(surface,p['shade'],(505,395),(570,395),2)
         if loop==2:self.cup(surface,(535,374,27,22))
 
@@ -60,7 +54,7 @@ class Artwork:
             foot = (foot_x, 223 - lift)
             knee = ((hip[0] + foot_x) / 2 + 3 + lift, 187 - lift)
             tone = mix((42,48,70), (142,178,200) if which==0 else (155,150,198), .55 if side < 0 else .82)
-            pygame.draw.lines(body, tone, False, [(hip[0]+side*5,153+crouch*28), (knee[0]+crouch*10,knee[1]+crouch*8), foot], 8)
+            pygame.draw.lines(body, tone, False, [(hip[0]+side*5,153+crouch*28), (knee[0]+crouch*10,knee[1]+crouch*8), foot], 5)
             pygame.draw.line(body, tone, foot, (foot_x+6,foot[1]), 5)
         tone=(130,185,190) if which==0 else (181,166,199)
         # An open face and a single unwaisted coat suggest a person without portraiture.
@@ -69,8 +63,6 @@ class Artwork:
         pygame.draw.ellipse(body,tone,head,3)
         torso=pygame.Surface((180,240),pygame.SRCALPHA)
         pygame.draw.polygon(torso,tone,[(81,73),(100,73),(107,145),(73,145)])
-        pygame.draw.polygon(torso,(*mix(tone,(46,50,60),.22),255),
-                            [(95,75),(100,73),(107,145),(94,145)])
         body.blit(torso,(round(sway),round(breath)))
         arm_swing=stride*9
         for side in (-1,1):
